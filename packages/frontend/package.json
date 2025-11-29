@@ -4,7 +4,16 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "typecheck": "tsc --build",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "keywords": [],
   "author": "",

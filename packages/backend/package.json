@@ -4,7 +4,16 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "wrangler dev",
+    "test": "vitest",
+    "types:generate": "wrangler types src/types/worker-configuration.d.ts",
+    "build": "pnpm types:generate && tsc --build",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "db:migrate:prod": "wrangler d1 migrations apply DB --remote",
+    "db:studio": "drizzle-kit studio",
+    "db:push": "drizzle-kit push"
   },
   "keywords": [],
   "author": "",
