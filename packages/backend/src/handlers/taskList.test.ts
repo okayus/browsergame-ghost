@@ -1,36 +1,36 @@
-import { describe, it, expect, vi } from 'vitest';
-import { getTaskList } from './taskList';
-import { Context } from 'hono';
-import { DB } from '../db';
-import { Task } from '../db/schema';
+import type { Context } from "hono";
+import { describe, expect, it, vi } from "vitest";
+import type { DB } from "../db";
+import type { Task } from "../db/schema";
+import { getTaskList } from "./taskList";
 
-describe('getTaskList', () => {
-  it('should return a list of tasks', async () => {
+describe("getTaskList", () => {
+  it("should return a list of tasks", async () => {
     // モックデータ
     const mockTasks: Task[] = [
       {
         id: 1,
         userId: 1,
-        title: 'Task 1',
-        description: 'Description 1',
+        title: "Task 1",
+        description: "Description 1",
         completed: false,
-        createdAt: '2025-11-19 10:00:00',
+        createdAt: "2025-11-19 10:00:00",
       },
       {
         id: 2,
         userId: 1,
-        title: 'Task 2',
-        description: 'Description 2',
+        title: "Task 2",
+        description: "Description 2",
         completed: true,
-        createdAt: '2025-11-19 09:00:00',
+        createdAt: "2025-11-19 09:00:00",
       },
       {
         id: 3,
         userId: 1,
-        title: 'Task 3',
+        title: "Task 3",
         description: null,
         completed: false,
-        createdAt: '2025-11-19 08:00:00',
+        createdAt: "2025-11-19 08:00:00",
       },
     ];
 
@@ -59,7 +59,7 @@ describe('getTaskList', () => {
         capturedData = data;
         return new Response(JSON.stringify(data), {
           status: 200,
-          headers: { 'Content-Type': 'application/json' },
+          headers: { "Content-Type": "application/json" },
         });
       },
     } as unknown as Context<{ Bindings: Env }>;
@@ -74,9 +74,9 @@ describe('getTaskList', () => {
 
     expect(capturedData).not.toBeNull();
     expect(capturedData!.tasks).toHaveLength(3);
-    expect(capturedData!.tasks[0].title).toBe('Task 1');
+    expect(capturedData!.tasks[0].title).toBe("Task 1");
     expect(capturedData!.tasks[0].completed).toBe(false);
-    expect(capturedData!.tasks[1].title).toBe('Task 2');
+    expect(capturedData!.tasks[1].title).toBe("Task 2");
     expect(capturedData!.tasks[1].completed).toBe(true);
 
     // Responseオブジェクトの検証
@@ -91,7 +91,7 @@ describe('getTaskList', () => {
     expect(responseBody.tasks).toHaveLength(3);
   });
 
-  it('should return empty array when no tasks exist', async () => {
+  it("should return empty array when no tasks exist", async () => {
     // 空のモックデータ
     const mockTasks: Task[] = [];
 
@@ -118,7 +118,7 @@ describe('getTaskList', () => {
         capturedData = data;
         return new Response(JSON.stringify(data), {
           status: 200,
-          headers: { 'Content-Type': 'application/json' },
+          headers: { "Content-Type": "application/json" },
         });
       },
     } as unknown as Context<{ Bindings: Env }>;

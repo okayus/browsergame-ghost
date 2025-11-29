@@ -1,29 +1,24 @@
-import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
-import { sql } from 'drizzle-orm';
-import { relations } from 'drizzle-orm';
+import { relations, sql } from "drizzle-orm";
+import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 // ユーザーテーブル
-export const users = sqliteTable('users', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  name: text('name').notNull(),
-  email: text('email').notNull().unique(),
-  createdAt: text('created_at')
-    .notNull()
-    .default(sql`(datetime('now'))`),
+export const users = sqliteTable("users", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  email: text("email").notNull().unique(),
+  createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
 });
 
 // タスクテーブル（user_idで関連付け）
-export const tasks = sqliteTable('tasks', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  userId: integer('user_id')
+export const tasks = sqliteTable("tasks", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id")
     .notNull()
     .references(() => users.id),
-  title: text('title').notNull(),
-  description: text('description'), // 説明フィールドを追加（オプション）
-  completed: integer('completed', { mode: 'boolean' }).notNull().default(false),
-  createdAt: text('created_at')
-    .notNull()
-    .default(sql`(datetime('now'))`),
+  title: text("title").notNull(),
+  description: text("description"), // 説明フィールドを追加（オプション）
+  completed: integer("completed", { mode: "boolean" }).notNull().default(false),
+  createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
 });
 
 // リレーション定義
