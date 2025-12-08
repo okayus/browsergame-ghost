@@ -46,7 +46,7 @@ feat/task-{メジャータスク番号}.{サブタスク番号}-{簡潔な説明
 
 ## Tasks
 
-- [ ] 1. モノレポ・CI/CD基盤セットアップ
+- [x] 1. モノレポ・CI/CD基盤セットアップ
 - [x] 1.1 (P) pnpmワークスペースを構成する
   - pnpm-workspace.yamlの作成・確認
   - packages/backend, packages/frontendの依存関係整理
@@ -61,7 +61,7 @@ feat/task-{メジャータスク番号}.{サブタスク番号}-{簡潔な説明
   - backend/frontend両パッケージの並列実行
   - _Requirements: 10.1_
 
-- [ ] 1.3 (P) Cloudflareデプロイパイプラインを構築する
+- [x] 1.3 (P) Cloudflareデプロイパイプラインを構築する
   - Cloudflare Pages（Frontend）デプロイ設定
   - Cloudflare Workers（Backend）デプロイ設定
   - 環境変数・シークレット設定
