@@ -1,16 +1,35 @@
 {
   "name": "browsergame-ghost",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Ghost - 2D Browser RPG Game",
+  "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev:backend": "pnpm --filter backend dev",
+    "dev:frontend": "pnpm --filter frontend dev",
+    "build": "pnpm -r build",
+    "build:backend": "pnpm --filter backend build",
+    "build:frontend": "pnpm --filter frontend build",
+    "test": "pnpm -r test",
+    "test:backend": "pnpm --filter backend test",
+    "test:frontend": "pnpm --filter frontend test",
+    "typecheck": "pnpm -r typecheck",
+    "typecheck:backend": "pnpm --filter backend typecheck",
+    "typecheck:frontend": "pnpm --filter frontend typecheck",
+    "lint": "pnpm -r lint",
+    "lint:backend": "pnpm --filter backend lint",
+    "lint:frontend": "pnpm --filter frontend lint",
+    "lint:fix": "pnpm -r lint:fix",
+    "format": "pnpm -r format",
+    "format:check": "pnpm -r format:check",
+    "check": "pnpm -r check",
+    "check:fix": "pnpm -r check:fix"
   },
-  "keywords": [],
+  "keywords": ["game", "browser-game", "rpg"],
   "author": "",
   "license": "ISC",
   "packageManager": "pnpm@10.11.1",
   "engines": {
+    "node": ">=20.0.0",
     "pnpm": ">=10.1.0"
   }
 }
