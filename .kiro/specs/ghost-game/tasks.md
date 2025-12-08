@@ -47,7 +47,7 @@ feat/task-{メジャータスク番号}.{サブタスク番号}-{簡潔な説明
 ## Tasks
 
 - [ ] 1. モノレポ・CI/CD基盤セットアップ
-- [ ] 1.1 (P) pnpmワークスペースを構成する
+- [x] 1.1 (P) pnpmワークスペースを構成する
   - pnpm-workspace.yamlの作成・確認
   - packages/backend, packages/frontendの依存関係整理
   - 共通設定（TypeScript、Biome）のルート配置
