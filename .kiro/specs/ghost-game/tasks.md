@@ -54,7 +54,7 @@ feat/task-{メジャータスク番号}.{サブタスク番号}-{簡潔な説明
   - ワークスペース間の依存関係設定
   - _Requirements: 10.1_
 
-- [ ] 1.2 (P) GitHub Actions CIパイプラインを構築する
+- [x] 1.2 (P) GitHub Actions CIパイプラインを構築する
   - .github/workflows/ci.ymlの拡張
   - pnpm installとキャッシュ設定
   - lint、typecheck、testジョブの追加
