@@ -30,27 +30,19 @@ function App() {
   return (
     <div className="min-h-screen bg-ghost-bg p-8 font-sans text-ghost-text">
       <div className="mx-auto max-w-2xl">
-        <h1 className="mb-8 text-3xl font-bold text-ghost-primary-light">
-          Ghost Game
-        </h1>
+        <h1 className="mb-8 text-3xl font-bold text-ghost-primary-light">Ghost Game</h1>
 
         <div className="mb-8 rounded-lg bg-ghost-surface p-6">
           <h2 className="mb-4 text-xl font-semibold text-ghost-text-bright">
             Backend API Response:
           </h2>
-          {loading && (
-            <p className="text-ghost-text-muted animate-pulse">Loading...</p>
-          )}
+          {loading && <p className="text-ghost-text-muted animate-pulse">Loading...</p>}
           {error && <p className="text-ghost-danger">{error}</p>}
-          {message && (
-            <p className="text-lg text-ghost-success">{message}</p>
-          )}
+          {message && <p className="text-lg text-ghost-success">{message}</p>}
         </div>
 
         <div className="rounded-lg bg-ghost-surface p-6">
-          <h3 className="mb-4 text-lg font-semibold text-ghost-text-bright">
-            Technologies:
-          </h3>
+          <h3 className="mb-4 text-lg font-semibold text-ghost-text-bright">Technologies:</h3>
           <ul className="space-y-2 text-ghost-text-muted">
             <li className="flex items-center gap-2">
               <span className="text-ghost-accent-light">React 19</span>
