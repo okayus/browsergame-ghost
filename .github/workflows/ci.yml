@@ -61,7 +61,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package: [backend, frontend]
+        package: [backend, frontend, '@ghost-game/shared']
 
     steps:
       - name: Checkout
@@ -98,7 +98,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package: [backend, frontend]
+        package: [backend, frontend, '@ghost-game/shared']
 
     steps:
       - name: Checkout
@@ -135,7 +135,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package: [backend, frontend]
+        package: [backend, frontend, '@ghost-game/shared']
 
     steps:
       - name: Checkout
