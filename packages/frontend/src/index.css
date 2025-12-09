@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+/* Ghost Game Custom Theme */
+@theme {
+  /* Primary: 霊的な紫 */
+  --color-ghost-primary: #6b21a8;
+  --color-ghost-primary-light: #a855f7;
+  --color-ghost-primary-dark: #4c1d95;
+
+  /* Secondary: 神秘的な青 */
+  --color-ghost-secondary: #1e40af;
+  --color-ghost-secondary-light: #3b82f6;
+  --color-ghost-secondary-dark: #1e3a8a;
+
+  /* Accent: エネルギッシュなシアン */
+  --color-ghost-accent: #0891b2;
+  --color-ghost-accent-light: #22d3ee;
+  --color-ghost-accent-dark: #0e7490;
+
+  /* Background: ダークテーマ */
+  --color-ghost-bg: #0f0f23;
+  --color-ghost-bg-light: #1a1a2e;
+  --color-ghost-bg-dark: #0a0a14;
+
+  /* Surface: カードなどの背景 */
+  --color-ghost-surface: #16213e;
+  --color-ghost-surface-light: #1f2b4d;
+  --color-ghost-surface-dark: #0f172a;
+
+  /* Text */
+  --color-ghost-text: #e2e8f0;
+  --color-ghost-text-muted: #94a3b8;
+  --color-ghost-text-bright: #f8fafc;
+
+  /* Status Colors */
+  --color-ghost-success: #10b981;
+  --color-ghost-warning: #f59e0b;
+  --color-ghost-danger: #ef4444;
+  --color-ghost-info: #06b6d4;
+
+  /* Ghost Rarity Colors */
+  --color-rarity-common: #9ca3af;
+  --color-rarity-uncommon: #22c55e;
+  --color-rarity-rare: #3b82f6;
+  --color-rarity-epic: #a855f7;
+  --color-rarity-legendary: #f59e0b;
+}
