@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   BaseStatsSchema,
-  BattleGhostSchema,
   GhostSpeciesSchema,
   GhostTypeSchema,
   MoveSchema,
@@ -174,36 +173,5 @@ describe("OwnedGhostSchema", () => {
         ],
       }),
     ).toThrow();
-  });
-});
-
-describe("BattleGhostSchema", () => {
-  it("should accept battle ghost with stat modifiers", () => {
-    const ghost = {
-      id: "ghost-001",
-      speciesId: "fireling",
-      level: 10,
-      experience: 1000,
-      currentHp: 45,
-      maxHp: 50,
-      stats: { hp: 50, attack: 30, defense: 25, speed: 35 },
-      moves: [],
-      statModifiers: { attack: 2, defense: -1, speed: 0 },
-    };
-    expect(BattleGhostSchema.parse(ghost)).toEqual(ghost);
-  });
-
-  it("should accept battle ghost without stat modifiers", () => {
-    const ghost = {
-      id: "ghost-001",
-      speciesId: "fireling",
-      level: 10,
-      experience: 1000,
-      currentHp: 45,
-      maxHp: 50,
-      stats: { hp: 50, attack: 30, defense: 25, speed: 35 },
-      moves: [],
-    };
-    expect(BattleGhostSchema.parse(ghost)).toMatchObject(ghost);
   });
 });

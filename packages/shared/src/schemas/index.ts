@@ -1,9 +1,19 @@
-// Ghost and Move schemas
+// Ghost and Move schemas (persisted to DB)
+
+// Battle schemas (React state only, not persisted)
+export {
+  type BattleGhostState,
+  BattleGhostStateSchema,
+  type BattlePhase,
+  BattlePhaseSchema,
+  type BattleState,
+  BattleStateSchema,
+  type StatModifiers,
+  StatModifiersSchema,
+} from "./battle";
 export {
   type BaseStats,
   BaseStatsSchema,
-  type BattleGhost,
-  BattleGhostSchema,
   type GhostSpecies,
   GhostSpeciesSchema,
   type GhostType,

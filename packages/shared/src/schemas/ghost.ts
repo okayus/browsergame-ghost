@@ -98,19 +98,3 @@ export const OwnedGhostSchema = z.object({
 });
 
 export type OwnedGhost = z.infer<typeof OwnedGhostSchema>;
-
-/**
- * バトル中のゴースト状態
- */
-export const BattleGhostSchema = OwnedGhostSchema.extend({
-  // バトル中の一時的なステータス変化
-  statModifiers: z
-    .object({
-      attack: z.number().int().min(-6).max(6).default(0),
-      defense: z.number().int().min(-6).max(6).default(0),
-      speed: z.number().int().min(-6).max(6).default(0),
-    })
-    .optional(),
-});
-
-export type BattleGhost = z.infer<typeof BattleGhostSchema>;
