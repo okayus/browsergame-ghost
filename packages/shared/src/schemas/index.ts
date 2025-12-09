@@ -27,3 +27,15 @@ export {
   type OwnedMove,
   OwnedMoveSchema,
 } from "./ghost";
+
+// Item and Inventory schemas (persisted to DB)
+export {
+  type Inventory,
+  type InventoryEntry,
+  InventoryEntrySchema,
+  InventorySchema,
+  type Item,
+  type ItemCategory,
+  ItemCategorySchema,
+  ItemSchema,
+} from "./item";
