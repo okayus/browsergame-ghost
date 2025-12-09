@@ -22,6 +22,7 @@
   "license": "ISC",
   "packageManager": "pnpm@10.11.1",
   "dependencies": {
+    "@clerk/clerk-react": "^5.58.1",
     "hono": "^4.10.6",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
