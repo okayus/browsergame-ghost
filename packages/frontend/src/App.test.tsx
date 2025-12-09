@@ -24,7 +24,7 @@ describe("App", () => {
 
   it("renders the title", async () => {
     render(<App />);
-    expect(screen.getByText(/Monorepo PNPM Turbo - Frontend/i)).toBeInTheDocument();
+    expect(screen.getByText(/Ghost Game/i)).toBeInTheDocument();
 
     // Wait for async operations to complete
     await waitFor(() => {
