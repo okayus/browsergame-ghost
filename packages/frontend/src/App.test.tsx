@@ -2,6 +2,19 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 
+// Mock @clerk/clerk-react
+vi.mock("@clerk/clerk-react", () => ({
+  SignInButton: ({ children }: { children: React.ReactNode }) => children,
+  SignUpButton: ({ children }: { children: React.ReactNode }) => children,
+  SignedIn: ({ children }: { children: React.ReactNode }) => children,
+  SignedOut: () => null,
+  UserButton: () => <div data-testid="user-button" />,
+  useAuth: () => ({
+    isSignedIn: true,
+    getToken: vi.fn(() => Promise.resolve("mock-token")),
+  }),
+}));
+
 // Mock hono/client
 vi.mock("hono/client", () => ({
   hc: vi.fn(() => ({
@@ -32,9 +45,9 @@ describe("App", () => {
     });
   });
 
-  it("shows loading state initially", async () => {
+  it("shows signed in state", async () => {
     render(<App />);
-    expect(screen.getByText(/Loading/i)).toBeInTheDocument();
+    expect(screen.getByText(/You are signed in/i)).toBeInTheDocument();
 
     // Wait for loading to finish
     await waitFor(() => {
