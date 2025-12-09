@@ -39,3 +39,19 @@ export {
   ItemCategorySchema,
   ItemSchema,
 } from "./item";
+
+// Player, Party, and Map schemas (persisted to DB)
+export {
+  type MapData,
+  MapDataSchema,
+  type MapTile,
+  MapTileSchema,
+  type Party,
+  PartySchema,
+  type PlayerData,
+  PlayerDataSchema,
+  type PlayerPosition,
+  PlayerPositionSchema,
+  type TileType,
+  TileTypeSchema,
+} from "./player";
