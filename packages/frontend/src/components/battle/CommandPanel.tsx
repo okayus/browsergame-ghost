@@ -96,7 +96,9 @@ export function CommandPanel({
     if (onKeyInput) {
       handleKeyInput(onKeyInput);
     }
-  }, [onKeyInput, handleKeyInput]);
+    // handleKeyInputは意図的に依存配列から除外（onKeyInputの変更時のみ実行）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onKeyInput]);
 
   // コマンドクリック
   const handleCommandClick = (index: number) => {
