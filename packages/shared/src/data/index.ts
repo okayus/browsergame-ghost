@@ -1,1 +1,1 @@
-export { ALL_MAPS, MAP_001, getMapById } from "./maps";
+export { ALL_MAPS, getMapById, MAP_001 } from "./maps";

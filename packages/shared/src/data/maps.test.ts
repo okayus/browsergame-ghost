@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MapDataSchema } from "../schemas";
-import { ALL_MAPS, MAP_001, getMapById } from "./maps";
+import { ALL_MAPS, getMapById, MAP_001 } from "./maps";
 
 describe("MAP_001", () => {
   it("should have correct id and name", () => {
