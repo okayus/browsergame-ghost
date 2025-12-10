@@ -11,6 +11,11 @@ export {
   STAB_MULTIPLIER,
 } from "./damage";
 export {
+  determineTurnOrder,
+  goesFirst,
+  type TurnOrderResult,
+} from "./turnOrder";
+export {
   type EffectivenessMultiplier,
   getEffectivenessMessage,
   getTypeEffectiveness,
