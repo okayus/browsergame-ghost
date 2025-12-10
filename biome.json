@@ -42,6 +42,16 @@
           }
         }
       }
+    },
+    {
+      "includes": ["**/GameContainer.tsx"],
+      "linter": {
+        "rules": {
+          "a11y": {
+            "noNoninteractiveTabindex": "off"
+          }
+        }
+      }
     }
   ]
 }
