@@ -1,4 +1,13 @@
 export {
+  attemptCapture,
+  BASE_CAPTURE_RATE,
+  type CaptureResult,
+  calculateCaptureRate,
+  HP_BONUS_MAX,
+  MAX_CAPTURE_RATE,
+  MIN_CAPTURE_RATE,
+} from "./capture";
+export {
   CRITICAL_HIT_RATE,
   CRITICAL_MULTIPLIER,
   calculateBaseDamage,
