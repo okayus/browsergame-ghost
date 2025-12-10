@@ -1,4 +1,13 @@
 export {
+  type BattleAction,
+  type BattleCommand,
+  type BattleEndReason,
+  type BattleState,
+  type TurnResult,
+  type UseBattleStateReturn,
+  useBattleState,
+} from "./useBattleState";
+export {
   type GameScreen,
   type GameState,
   type UseGameStateReturn,
