@@ -92,12 +92,11 @@ export function CommandPanel({
   );
 
   // 親からのキー入力を処理
+  // biome-ignore lint/correctness/useExhaustiveDependencies: handleKeyInputは意図的に除外（onKeyInputの変更時のみ実行、無限ループ防止）
   useEffect(() => {
     if (onKeyInput) {
       handleKeyInput(onKeyInput);
     }
-    // handleKeyInputは意図的に依存配列から除外（onKeyInputの変更時のみ実行）
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onKeyInput]);
 
   // コマンドクリック
