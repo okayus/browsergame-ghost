@@ -52,6 +52,16 @@
           }
         }
       }
+    },
+    {
+      "includes": ["**/MapGrid.tsx"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noArrayIndexKey": "off"
+          }
+        }
+      }
     }
   ]
 }
