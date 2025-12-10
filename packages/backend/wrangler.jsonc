@@ -16,7 +16,7 @@
     {
       "binding": "DB", // コード内で使う名前
       "database_name": "ghost-game-db", // データベース名
-      "database_id": "1510fafb-b8c1-4365-bc8a-07f7e1fdc0a6", // 本番DBのID
+      "database_id": "4326bdb1-bcec-476e-8a96-0f47420a64da", // 本番DBのID
       "migrations_dir": "drizzle", // マイグレーションディレクトリ
     },
   ],
