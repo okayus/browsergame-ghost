@@ -1,7 +1,7 @@
 import { type Context, Hono } from "hono";
 import { cors } from "hono/cors";
 import { createDB } from "./db";
-import { getTaskList } from "./handlers/taskList";
+import { ghostSpecies, moves } from "./db/schema";
 import { authMiddleware, getAuthInfo } from "./middleware/auth";
 
 const app = new Hono<{ Bindings: Env }>()
@@ -22,13 +22,20 @@ const app = new Hono<{ Bindings: Env }>()
   // Clerk認証ミドルウェアを適用（全ルートでトークン検証）
   .use("/*", authMiddleware())
   .get("/", (c) => {
-    return c.json({ message: "Hello, World!" });
+    return c.json({ message: "Hello, Ghost Game API!" });
   })
-  .get("/api/tasks", async (c: Context<{ Bindings: Env }>) => {
+  // マスタデータ取得API
+  .get("/api/master/ghosts", async (c: Context<{ Bindings: Env }>) => {
     const db = createDB(c.env.DB);
-    return getTaskList(db, c);
+    const allGhosts = await db.select().from(ghostSpecies);
+    return c.json({ ghosts: allGhosts });
   })
-  // 認証情報を返すエンドポイント（テスト用）
+  .get("/api/master/moves", async (c: Context<{ Bindings: Env }>) => {
+    const db = createDB(c.env.DB);
+    const allMoves = await db.select().from(moves);
+    return c.json({ moves: allMoves });
+  })
+  // 認証情報を返すエンドポイント
   .get("/api/me", (c) => {
     const auth = getAuthInfo(c);
     if (!auth?.userId) {
