@@ -29,6 +29,14 @@ export {
   MIN_ESCAPE_RATE,
 } from "./escape";
 export {
+  addExperience,
+  BASE_EXP_MULTIPLIER,
+  calculateExpGain,
+  getExpForLevel,
+  getExpToNextLevel,
+  getLevelFromExp,
+} from "./experience";
+export {
   determineTurnOrder,
   goesFirst,
   type TurnOrderResult,
