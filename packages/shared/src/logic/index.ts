@@ -37,6 +37,15 @@ export {
   getLevelFromExp,
 } from "./experience";
 export {
+  calculateMaxHp,
+  calculateStats,
+  getInitialMaxHp,
+  getInitialStats,
+  getNewLearnableMoves,
+  type LevelUpResult,
+  processLevelUp,
+} from "./levelUp";
+export {
   determineTurnOrder,
   goesFirst,
   type TurnOrderResult,
