@@ -18,26 +18,26 @@ function App() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
 
-  const fetchTasks = useCallback(async () => {
+  const fetchGhosts = useCallback(async () => {
     try {
       setLoading(true);
       const token = await getToken();
       const client = hc<AppType>(API_BASE_URL, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      const response = await client.api.tasks.$get();
+      const response = await client.api.master.ghosts.$get();
       const data = await response.json();
-      setMessage(`Fetched ${data.tasks.length} tasks from backend.`);
+      setMessage(`Fetched ${data.ghosts.length} ghost species from backend.`);
     } catch (err) {
-      setError(`Failed to fetch tasks from backend.\n${err}`);
+      setError(`Failed to fetch ghost species from backend.\n${err}`);
     } finally {
       setLoading(false);
     }
   }, [getToken]);
 
   useEffect(() => {
-    fetchTasks();
-  }, [fetchTasks]);
+    fetchGhosts();
+  }, [fetchGhosts]);
 
   return (
     <div className="min-h-screen bg-ghost-bg p-8 font-sans text-ghost-text">
