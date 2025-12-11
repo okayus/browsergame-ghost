@@ -6,14 +6,20 @@ import {
   UserButton,
   useAuth,
 } from "@clerk/clerk-react";
-import { hc } from "hono/client";
 import { useCallback, useEffect, useState } from "react";
-import type { AppType } from "../../backend/src/index";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+import { useApiClient, useSaveData } from "./api";
 
 function App() {
-  const { isSignedIn, getToken } = useAuth();
+  const { isSignedIn } = useAuth();
+  const { getApiClient } = useApiClient();
+  const {
+    data: saveData,
+    loading: saveLoading,
+    error: saveError,
+    lastSavedAt,
+    loadSaveData,
+  } = useSaveData();
+
   const [message, setMessage] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
@@ -21,10 +27,7 @@ function App() {
   const fetchGhosts = useCallback(async () => {
     try {
       setLoading(true);
-      const token = await getToken();
-      const client = hc<AppType>(API_BASE_URL, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
+      const client = await getApiClient();
       const response = await client.api.master.ghosts.$get();
       const data = await response.json();
       setMessage(`Fetched ${data.ghosts.length} ghost species from backend.`);
@@ -33,11 +36,18 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }, [getToken]);
+  }, [getApiClient]);
 
   useEffect(() => {
     fetchGhosts();
   }, [fetchGhosts]);
+
+  // サインイン時にセーブデータを読み込む
+  useEffect(() => {
+    if (isSignedIn) {
+      loadSaveData();
+    }
+  }, [isSignedIn, loadSaveData]);
 
   return (
     <div className="min-h-screen bg-ghost-bg p-8 font-sans text-ghost-text">
@@ -83,6 +93,41 @@ function App() {
             {loading && <p className="text-ghost-text-muted animate-pulse">Loading...</p>}
             {error && <p className="text-ghost-danger">{error}</p>}
             {message && <p className="text-lg text-ghost-success">{message}</p>}
+          </div>
+
+          <div className="mb-8 rounded-lg bg-ghost-surface p-6">
+            <h2 className="mb-4 text-xl font-semibold text-ghost-text-bright">Save Data:</h2>
+            {saveLoading && (
+              <p className="text-ghost-text-muted animate-pulse">Loading save data...</p>
+            )}
+            {saveError && <p className="text-ghost-danger">{saveError}</p>}
+            {!saveLoading && !saveError && saveData && (
+              <div className="space-y-2 text-ghost-text-muted">
+                <p>
+                  <span className="text-ghost-text-bright">Player:</span> {saveData.name}
+                </p>
+                <p>
+                  <span className="text-ghost-text-bright">Position:</span> Map{" "}
+                  {saveData.position.mapId} ({saveData.position.x}, {saveData.position.y})
+                </p>
+                <p>
+                  <span className="text-ghost-text-bright">Party:</span>{" "}
+                  {saveData.party.ghosts.length} ghosts
+                </p>
+                <p>
+                  <span className="text-ghost-text-bright">Items:</span>{" "}
+                  {saveData.inventory.items.length} types
+                </p>
+                {lastSavedAt && (
+                  <p className="text-sm text-ghost-text-muted">
+                    Last saved: {lastSavedAt.toLocaleTimeString()}
+                  </p>
+                )}
+              </div>
+            )}
+            {!saveLoading && !saveError && !saveData && (
+              <p className="text-ghost-text-muted">No save data found. Start a new game!</p>
+            )}
           </div>
         </SignedIn>
 
