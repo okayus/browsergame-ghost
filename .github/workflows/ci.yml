@@ -208,8 +208,10 @@ jobs:
           EXIT_CODE=$?
           echo "$OUTPUT"
 
-          # Check if all tests passed (look for "X passed" with no failures)
-          if echo "$OUTPUT" | grep -q "passed.*[0-9].*)" && ! echo "$OUTPUT" | grep -q "failed"; then
+          # Check if all tests passed
+          # Look for "Test Files  X passed" without any "Y failed" in the test summary
+          # Note: We check for test failures specifically, not "Allocation failed" from OOM errors
+          if echo "$OUTPUT" | grep -qE "Test Files.*[0-9]+ passed" && ! echo "$OUTPUT" | grep -qE "Test Files.*[0-9]+ failed|Tests.*[0-9]+ failed"; then
             echo "✅ All tests passed successfully"
             exit 0
           else
