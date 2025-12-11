@@ -2,6 +2,8 @@ export type { BattleScreenProps } from "./BattleScreen";
 export { BattleScreen } from "./BattleScreen";
 export type { CaptureItemPanelProps, DisplayCaptureItem } from "./CaptureItemPanel";
 export { CaptureItemPanel } from "./CaptureItemPanel";
+export type { CaptureSuccessPanelProps } from "./CaptureSuccessPanel";
+export { CaptureSuccessPanel } from "./CaptureSuccessPanel";
 export type { BattleCommand, CommandPanelProps } from "./CommandPanel";
 export { CommandPanel } from "./CommandPanel";
 export type { GhostDisplayProps } from "./GhostDisplay";
