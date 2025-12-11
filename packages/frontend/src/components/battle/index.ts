@@ -4,6 +4,8 @@ export type { BattleCommand, CommandPanelProps } from "./CommandPanel";
 export { CommandPanel } from "./CommandPanel";
 export type { GhostDisplayProps } from "./GhostDisplay";
 export { GhostDisplay } from "./GhostDisplay";
+export type { GhostSwapPanelProps } from "./GhostSwapPanel";
+export { GhostSwapPanel } from "./GhostSwapPanel";
 export type { DisplayItem, ItemSelectPanelProps } from "./ItemSelectPanel";
 export { ItemSelectPanel } from "./ItemSelectPanel";
 export type { DisplayMove, SkillSelectPanelProps } from "./SkillSelectPanel";
