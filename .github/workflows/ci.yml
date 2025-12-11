@@ -164,7 +164,7 @@ jobs:
       - name: Run Tests
         run: pnpm --filter=${{ matrix.package }} test
         env:
-          NODE_OPTIONS: --max-old-space-size=4096
+          NODE_OPTIONS: --max-old-space-size=6144
 
   # Build verification
   build:
