@@ -6,6 +6,8 @@ export type { CaptureSuccessPanelProps } from "./CaptureSuccessPanel";
 export { CaptureSuccessPanel } from "./CaptureSuccessPanel";
 export type { BattleCommand, CommandPanelProps } from "./CommandPanel";
 export { CommandPanel } from "./CommandPanel";
+export type { DefeatPanelProps } from "./DefeatPanel";
+export { DefeatPanel } from "./DefeatPanel";
 export type { GhostDisplayProps } from "./GhostDisplay";
 export { GhostDisplay } from "./GhostDisplay";
 export type { GhostSwapPanelProps } from "./GhostSwapPanel";
