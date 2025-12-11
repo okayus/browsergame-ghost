@@ -127,7 +127,7 @@ jobs:
       - name: Run TypeScript Check
         run: pnpm --filter=${{ matrix.package }} typecheck
 
-  # Test for both packages
+  # Test for backend and shared packages
   test:
     name: Test (${{ matrix.package }})
     runs-on: ubuntu-latest
@@ -135,7 +135,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package: [backend, frontend, '@ghost-game/shared']
+        package: [backend, '@ghost-game/shared']
 
     steps:
       - name: Checkout
@@ -163,14 +163,81 @@ jobs:
 
       - name: Run Tests
         run: pnpm --filter=${{ matrix.package }} test
+
+  # Frontend tests split into two jobs to reduce memory usage
+  test-frontend-components:
+    name: Test (frontend/components)
+    runs-on: ubuntu-latest
+    needs: setup
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Restore build artifacts
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            node_modules
+            packages/*/node_modules
+            packages/backend/dist
+            packages/backend/src/types/worker-configuration.d.ts
+          key: build-${{ github.sha }}
+
+      - name: Run Component Tests
+        run: pnpm --filter=frontend test -- --run src/components
         env:
-          NODE_OPTIONS: --max-old-space-size=6144
+          NODE_OPTIONS: --max-old-space-size=4096
+
+  test-frontend-hooks:
+    name: Test (frontend/hooks)
+    runs-on: ubuntu-latest
+    needs: setup
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Restore build artifacts
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            node_modules
+            packages/*/node_modules
+            packages/backend/dist
+            packages/backend/src/types/worker-configuration.d.ts
+          key: build-${{ github.sha }}
+
+      - name: Run Hook Tests
+        run: pnpm --filter=frontend test -- --run src/hooks
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
 
   # Build verification
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: [lint, typecheck, test]
+    needs: [lint, typecheck, test, test-frontend-components, test-frontend-hooks]
 
     steps:
       - name: Checkout
