@@ -1,8 +1,12 @@
+import { InventorySchema, PartySchema, PlayerPositionSchema } from "@ghost-game/shared";
+import { zValidator } from "@hono/zod-validator";
 import { type Context, Hono } from "hono";
 import { cors } from "hono/cors";
+import { z } from "zod";
 import { createDB } from "./db";
 import { ghostSpecies, moves } from "./db/schema";
-import { authMiddleware, getAuthInfo } from "./middleware/auth";
+import { authMiddleware, getAuthInfo, requireAuth } from "./middleware/auth";
+import { getPlayerSaveData, savePlayerData } from "./services/save";
 
 const app = new Hono<{ Bindings: Env }>()
   .use(
@@ -45,7 +49,52 @@ const app = new Hono<{ Bindings: Env }>()
       authenticated: true,
       userId: auth.userId,
     });
-  });
+  })
+  // セーブデータAPI
+  .get("/api/save", requireAuth(), async (c: Context<{ Bindings: Env }>) => {
+    const auth = getAuthInfo(c);
+    if (!auth?.userId) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+
+    const db = createDB(c.env.DB);
+    const saveData = await getPlayerSaveData(db, auth.userId);
+
+    if (!saveData) {
+      return c.json({ error: "Save data not found" }, 404);
+    }
+
+    return c.json({ data: saveData });
+  })
+  .post(
+    "/api/save",
+    requireAuth(),
+    zValidator(
+      "json",
+      z.object({
+        position: PlayerPositionSchema.optional(),
+        party: PartySchema.optional(),
+        inventory: InventorySchema.optional(),
+      }),
+    ),
+    async (c: Context<{ Bindings: Env }>) => {
+      const auth = getAuthInfo(c);
+      if (!auth?.userId) {
+        return c.json({ error: "Unauthorized" }, 401);
+      }
+
+      const body = c.req.valid("json" as never);
+      const db = createDB(c.env.DB);
+
+      const success = await savePlayerData(db, auth.userId, body);
+
+      if (!success) {
+        return c.json({ error: "Failed to save data" }, 500);
+      }
+
+      return c.json({ success: true });
+    },
+  );
 
 export type AppType = typeof app;
 export default app;
