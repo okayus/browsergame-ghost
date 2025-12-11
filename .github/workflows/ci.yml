@@ -195,7 +195,7 @@ jobs:
           key: build-${{ github.sha }}
 
       - name: Run Component Tests
-        run: pnpm --filter=frontend test -- --run "src/components/**/*.test.{ts,tsx}"
+        run: pnpm --filter=frontend test -- --run 'src/components/'
         env:
           NODE_OPTIONS: --max-old-space-size=4096
 
@@ -229,7 +229,7 @@ jobs:
           key: build-${{ github.sha }}
 
       - name: Run Hook Tests
-        run: pnpm --filter=frontend test -- --run "src/hooks/**/*.test.{ts,tsx}"
+        run: pnpm --filter=frontend test -- --run 'src/hooks/'
         env:
           NODE_OPTIONS: --max-old-space-size=4096
 
