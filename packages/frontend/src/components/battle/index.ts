@@ -8,6 +8,8 @@ export type { BattleCommand, CommandPanelProps } from "./CommandPanel";
 export { CommandPanel } from "./CommandPanel";
 export type { DefeatPanelProps } from "./DefeatPanel";
 export { DefeatPanel } from "./DefeatPanel";
+export type { EscapeResultPanelProps } from "./EscapeResultPanel";
+export { EscapeResultPanel } from "./EscapeResultPanel";
 export type { GhostDisplayProps } from "./GhostDisplay";
 export { GhostDisplay } from "./GhostDisplay";
 export type { GhostSwapPanelProps } from "./GhostSwapPanel";
