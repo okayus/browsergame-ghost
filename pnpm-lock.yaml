@@ -10,6 +10,9 @@ importers:
 
   packages/backend:
     dependencies:
+      '@ghost-game/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@hono/clerk-auth':
         specifier: ^3.0.3
         version: 3.0.3(hono@4.10.7)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
