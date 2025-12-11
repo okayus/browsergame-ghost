@@ -1,5 +1,7 @@
 export type { BattleScreenProps } from "./BattleScreen";
 export { BattleScreen } from "./BattleScreen";
+export type { CaptureFailurePanelProps } from "./CaptureFailurePanel";
+export { CaptureFailurePanel } from "./CaptureFailurePanel";
 export type { CaptureItemPanelProps, DisplayCaptureItem } from "./CaptureItemPanel";
 export { CaptureItemPanel } from "./CaptureItemPanel";
 export type { CaptureSuccessPanelProps } from "./CaptureSuccessPanel";
