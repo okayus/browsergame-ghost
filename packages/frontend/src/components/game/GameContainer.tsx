@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { GameScreen } from "../../hooks/useGameState";
+import { ScreenTransition, type TransitionType } from "./ScreenTransition";
 
 /**
  * ゲームコンテナのProps
@@ -11,6 +12,12 @@ export interface GameContainerProps {
   onKeyDown?: (key: string) => void;
   /** 子要素（各画面コンポーネント） */
   children: React.ReactNode;
+  /** トランジションがアクティブかどうか */
+  isTransitioning?: boolean;
+  /** トランジションのタイプ */
+  transitionType?: TransitionType;
+  /** トランジション完了時のコールバック */
+  onTransitionComplete?: () => void;
 }
 
 /**
@@ -48,11 +55,23 @@ const SUPPORTED_KEYS = [
  * - キーボードイベントリスナーの設定
  * - ゲーム全体のレイアウト
  */
-export function GameContainer({ currentScreen, onKeyDown, children }: GameContainerProps) {
+export function GameContainer({
+  currentScreen,
+  onKeyDown,
+  children,
+  isTransitioning = false,
+  transitionType = "fade",
+  onTransitionComplete,
+}: GameContainerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
+      // トランジション中はキー入力を無効化
+      if (isTransitioning) {
+        return;
+      }
+
       // サポートされるキーのみ処理
       if (!SUPPORTED_KEYS.includes(event.key)) {
         return;
@@ -70,7 +89,7 @@ export function GameContainer({ currentScreen, onKeyDown, children }: GameContai
 
       onKeyDown?.(event.key);
     },
-    [onKeyDown],
+    [onKeyDown, isTransitioning],
   );
 
   // キーボードイベントリスナーの設定
@@ -95,9 +114,17 @@ export function GameContainer({ currentScreen, onKeyDown, children }: GameContai
       tabIndex={0}
       data-testid="game-container"
       data-screen={currentScreen}
+      data-transitioning={isTransitioning}
     >
       {/* ゲームコンテンツエリア */}
       <div className="h-full w-full">{children}</div>
+
+      {/* 画面遷移トランジション */}
+      <ScreenTransition
+        type={transitionType}
+        isActive={isTransitioning}
+        onComplete={onTransitionComplete}
+      />
     </div>
   );
 }
