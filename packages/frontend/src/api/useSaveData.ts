@@ -5,6 +5,19 @@ import { useApiClient } from "./useApiClient";
 /** 自動セーブの間隔（ミリ秒） */
 const AUTO_SAVE_INTERVAL = 30000; // 30秒
 
+/** ローカルキャッシュのキー */
+const PENDING_CACHE_KEY = "ghost-game-pending-save";
+
+/**
+ * 保留中のキャッシュデータ
+ */
+interface PendingCacheData {
+  position?: PlayerPosition;
+  party?: Party;
+  inventory?: Inventory;
+  timestamp: number;
+}
+
 /**
  * セーブデータの状態
  */
@@ -19,6 +32,45 @@ export interface SaveDataState {
   lastSavedAt: Date | null;
   /** セーブ中かどうか */
   saving: boolean;
+  /** 保留中のキャッシュがあるかどうか */
+  hasPendingCache: boolean;
+}
+
+/**
+ * ローカルストレージから保留キャッシュを読み込む
+ */
+function loadPendingCache(): PendingCacheData | null {
+  try {
+    const cached = localStorage.getItem(PENDING_CACHE_KEY);
+    if (cached) {
+      return JSON.parse(cached) as PendingCacheData;
+    }
+  } catch {
+    // パースエラーは無視
+  }
+  return null;
+}
+
+/**
+ * ローカルストレージに保留キャッシュを保存
+ */
+function savePendingCache(data: PendingCacheData): void {
+  try {
+    localStorage.setItem(PENDING_CACHE_KEY, JSON.stringify(data));
+  } catch {
+    // ストレージエラーは無視
+  }
+}
+
+/**
+ * ローカルストレージから保留キャッシュを削除
+ */
+function clearPendingCache(): void {
+  try {
+    localStorage.removeItem(PENDING_CACHE_KEY);
+  } catch {
+    // ストレージエラーは無視
+  }
 }
 
 /**
@@ -27,15 +79,22 @@ export interface SaveDataState {
  * - ゲーム開始時のセーブデータ読み込み
  * - 定期的な自動セーブ（30秒間隔）
  * - 手動セーブ機能
+ * - オフライン時のローカルキャッシュ保存
+ * - 復旧時の自動同期
  */
 export function useSaveData() {
   const { getApiClient } = useApiClient();
+
+  // 初期化時に保留キャッシュをチェック
+  const initialPendingCache = loadPendingCache();
+
   const [state, setState] = useState<SaveDataState>({
     data: null,
     loading: true,
     error: null,
     lastSavedAt: null,
     saving: false,
+    hasPendingCache: initialPendingCache !== null,
   });
 
   // 自動セーブ用のデータ参照
@@ -108,10 +167,14 @@ export function useSaveData() {
           throw new Error(`Failed to save data: ${response.status}`);
         }
 
+        // 成功時は保留キャッシュをクリア
+        clearPendingCache();
+
         setState((prev) => ({
           ...prev,
           saving: false,
           lastSavedAt: new Date(),
+          hasPendingCache: false,
           // ローカルデータも更新
           data: prev.data
             ? {
@@ -127,16 +190,74 @@ export function useSaveData() {
         return true;
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Unknown error occurred";
+
+        // 失敗時はローカルキャッシュに保存
+        const pendingCache: PendingCacheData = {
+          ...data,
+          timestamp: Date.now(),
+        };
+        savePendingCache(pendingCache);
+
         setState((prev) => ({
           ...prev,
           saving: false,
           error: errorMessage,
+          hasPendingCache: true,
         }));
+
         return false;
       }
     },
     [getApiClient],
   );
+
+  /**
+   * 保留中のキャッシュを同期する
+   */
+  const syncPendingCache = useCallback(async () => {
+    const cached = loadPendingCache();
+    if (!cached) {
+      setState((prev) => ({ ...prev, hasPendingCache: false }));
+      return true;
+    }
+
+    const { timestamp: _timestamp, ...dataToSync } = cached;
+
+    try {
+      const client = await getApiClient();
+      const response = await client.api.save.$post({
+        json: dataToSync,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to sync data: ${response.status}`);
+      }
+
+      // 成功時は保留キャッシュをクリア
+      clearPendingCache();
+
+      setState((prev) => ({
+        ...prev,
+        lastSavedAt: new Date(),
+        hasPendingCache: false,
+        // ローカルデータも更新
+        data: prev.data
+          ? {
+              ...prev.data,
+              ...(dataToSync.position && { position: dataToSync.position }),
+              ...(dataToSync.party && { party: dataToSync.party }),
+              ...(dataToSync.inventory && { inventory: dataToSync.inventory }),
+              updatedAt: new Date().toISOString(),
+            }
+          : null,
+      }));
+
+      return true;
+    } catch {
+      // 同期失敗時はキャッシュを維持
+      return false;
+    }
+  }, [getApiClient]);
 
   /**
    * 自動セーブ用にデータを更新（すぐには保存しない）
@@ -193,11 +314,26 @@ export function useSaveData() {
     };
   }, []);
 
+  // オンライン復帰時に保留キャッシュを同期
+  useEffect(() => {
+    const handleOnline = () => {
+      if (state.hasPendingCache) {
+        syncPendingCache();
+      }
+    };
+
+    window.addEventListener("online", handleOnline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+    };
+  }, [state.hasPendingCache, syncPendingCache]);
+
   return {
     ...state,
     loadSaveData,
     saveData,
     updatePendingSaveData,
     executeAutoSave,
+    syncPendingCache,
   };
 }
