@@ -5,6 +5,7 @@ import { ErrorScreen } from "./components/auth/ErrorScreen";
 import { LoadingScreen } from "./components/auth/LoadingScreen";
 import { WelcomeScreen } from "./components/auth/WelcomeScreen";
 import { GameContainer } from "./components/game/GameContainer";
+import { SaveStatus } from "./components/game/SaveStatus";
 import { MapScreen } from "./components/map/MapScreen";
 import { useAuthState } from "./hooks/useAuthState";
 import { useGameState } from "./hooks/useGameState";
@@ -14,7 +15,7 @@ import { useMapState } from "./hooks/useMapState";
 function App() {
   const clerk = useClerk();
   const { state: authState, needsInitialization, initializeNewPlayer, retry } = useAuthState();
-  const { data: saveData } = useSaveData();
+  const { data: saveData, saving, hasPendingCache, lastSavedAt } = useSaveData();
   const { state: gameState, setParty, setInventory, setLoaded } = useGameState();
   const { state: mapState, setPosition, move } = useMapState();
 
@@ -94,6 +95,14 @@ function App() {
       case "game":
         return (
           <div className="flex min-h-screen flex-col items-center justify-center bg-gray-900 p-4">
+            {/* セーブ状態表示 */}
+            <div className="mb-2 self-end">
+              <SaveStatus
+                saving={saving}
+                hasPendingCache={hasPendingCache}
+                lastSavedAt={lastSavedAt}
+              />
+            </div>
             <GameContainer currentScreen={gameState.currentScreen} onKeyDown={handleKeyDown}>
               {gameState.currentScreen === "map" && mapState.currentMap && (
                 <MapScreen
