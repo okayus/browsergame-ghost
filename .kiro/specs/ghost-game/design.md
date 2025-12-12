@@ -120,6 +120,47 @@ stateDiagram-v2
     Moving --> Exploring: 移動ブロック（壁/障害物）
 ```
 
+### 認証・ゲーム開始フロー
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant App as App Component
+    participant Clerk as Clerk Auth
+    participant API as Backend API
+    participant DB as D1 Database
+
+    U->>App: アプリアクセス
+    App->>Clerk: 認証状態確認
+
+    alt 未認証
+        Clerk-->>App: 未認証
+        App->>U: ウェルカム画面表示
+        U->>Clerk: サインイン/サインアップ
+        Clerk-->>App: 認証成功
+    end
+
+    App->>App: ローディング画面表示
+    App->>API: GET /api/save
+    API->>DB: セーブデータ取得
+
+    alt セーブデータなし (404)
+        DB-->>API: Not Found
+        API-->>App: 404
+        App->>API: POST /api/save/initialize
+        API->>DB: 新規プレイヤー作成
+        Note over DB: 初期ゴースト、<br/>初期アイテム、<br/>初期位置を設定
+        DB-->>API: PlayerData
+        API-->>App: PlayerData
+    else セーブデータあり
+        DB-->>API: PlayerData
+        API-->>App: PlayerData
+    end
+
+    App->>App: ゲーム状態初期化
+    App->>U: マップ画面表示
+```
+
 ## Requirements Traceability
 
 | Requirement | Summary | Components | Interfaces | Flows |
@@ -134,6 +175,9 @@ stateDiagram-v2
 | 8.1-8.6 | 経験値・レベルアップ | - | Experience, LevelUp | バトルフロー |
 | 9.1-9.4 | 逃げる | - | EscapeResult | バトルフロー |
 | 10.1-10.5 | ゲーム画面・UI | GameContainer, MessageBox | GameScreen, KeyboardInput | - |
+| 11.1-11.5 | プレイヤー登録・初期化 | PlayerInitService (Backend) | InitializePlayerRequest, PlayerData | 認証フロー |
+| 12.1-12.6 | 認証状態・画面遷移 | App, LoadingScreen, useAuthState | AuthState, AppScreen | 認証フロー |
+| 13.1-13.5 | セーブデータ永続化 | useSaveData, SaveAPI | SaveData, SaveRequest | - |
 
 ## Components and Interfaces
 
@@ -153,6 +197,9 @@ stateDiagram-v2
 | battleLogic | Logic | ダメージ計算・ターン処理 | 3.3-3.6, 4.4-4.8 | typeChart (P0) | Service |
 | captureLogic | Logic | 捕獲成功率計算 | 5.2-5.5 | - | Service |
 | levelUpLogic | Logic | 経験値・レベルアップ処理 | 8.1-8.6 | - | Service |
+| useAuthState | Hook | 認証状態と画面遷移管理 | 12.1-12.6 | useSaveData (P0) | State |
+| LoadingScreen | UI | ローディング表示 | 12.5 | - | - |
+| playerInitService | Backend/Service | 新規プレイヤー初期化 | 11.1-11.5 | D1 Database (P0) | API |
 
 ### UI Layer
 
@@ -409,6 +456,136 @@ interface LevelUpResult {
   newStats: Stats;
   learnableMoves: Move[];
 }
+```
+
+### Authentication & Initialization Layer
+
+#### useAuthState
+
+| Field | Detail |
+|-------|--------|
+| Intent | 認証状態に基づいてアプリ画面を制御し、ゲーム開始フローを管理 |
+| Requirements | 12.1, 12.2, 12.3, 12.4, 12.5, 12.6 |
+
+**Responsibilities & Constraints**
+- Clerk認証状態を監視し、適切な画面を決定
+- 認証成功時にセーブデータ読み込みをトリガー
+- セーブデータがない場合に新規プレイヤー初期化を実行
+- エラー発生時のリトライ機能を提供
+
+**Dependencies**
+- Inbound: App — ルートコンポーネント (P0)
+- Outbound: useSaveData — セーブデータ操作 (P0)
+- External: @clerk/clerk-react — 認証状態 (P0)
+
+**Contracts**: State [x]
+
+##### State Management
+```typescript
+type AppScreen = "welcome" | "loading" | "game" | "error";
+
+interface AuthState {
+  /** 認証済みかどうか */
+  isAuthenticated: boolean;
+  /** 認証読み込み中 */
+  isAuthLoading: boolean;
+  /** 現在表示すべき画面 */
+  currentScreen: AppScreen;
+  /** セーブデータ読み込み済みかどうか */
+  isDataLoaded: boolean;
+  /** エラーメッセージ */
+  error: string | null;
+}
+
+type AuthAction =
+  | { type: "AUTH_LOADING" }
+  | { type: "AUTH_SUCCESS" }
+  | { type: "AUTH_SIGNED_OUT" }
+  | { type: "DATA_LOADING" }
+  | { type: "DATA_LOADED" }
+  | { type: "DATA_ERROR"; error: string }
+  | { type: "RETRY" };
+```
+
+#### LoadingScreen
+
+| Field | Detail |
+|-------|--------|
+| Intent | セーブデータ読み込み中のローディング表示 |
+| Requirements | 12.5 |
+
+**Responsibilities & Constraints**
+- ローディングアニメーションの表示
+- 読み込み状態のテキスト表示（「データを読み込み中...」）
+
+**Dependencies**
+- Inbound: App — 条件付きレンダリング (P0)
+
+**Implementation Notes**
+- シンプルなプレゼンテーショナルコンポーネント
+- Tailwind CSSのアニメーションユーティリティを使用
+
+#### playerInitService (Backend)
+
+| Field | Detail |
+|-------|--------|
+| Intent | 新規プレイヤーの初期データ作成とデータベース登録 |
+| Requirements | 11.1, 11.2, 11.3, 11.4, 11.5 |
+
+**Responsibilities & Constraints**
+- Clerk UserIDに紐づいた新規プレイヤーレコード作成
+- 初期ゴースト（レベル5、ランダムまたは固定種族）の付与
+- 初期アイテム（ゴーストボール×5、ポーション×3）の付与
+- 初期マップと開始位置の設定
+
+**Dependencies**
+- Inbound: Hono API Handler (P0)
+- Outbound: D1 Database — データ永続化 (P0)
+- External: Drizzle ORM — DB操作 (P0)
+
+**Contracts**: API [x]
+
+##### API Contract
+| Method | Endpoint | Request | Response | Errors |
+|--------|----------|---------|----------|--------|
+| POST | /api/save/initialize | - (Clerk Auth Header) | PlayerData | 401, 409, 500 |
+
+##### Service Interface
+```typescript
+interface PlayerInitService {
+  /**
+   * 新規プレイヤーを初期化する
+   * @param userId Clerk User ID
+   * @returns 作成されたプレイヤーデータ
+   * @throws ConflictError 既にプレイヤーが存在する場合
+   */
+  initializePlayer(userId: string): Promise<PlayerData>;
+}
+
+interface InitialPlayerConfig {
+  /** 初期ゴーストの種族ID */
+  starterGhostSpeciesId: string;
+  /** 初期ゴーストのレベル */
+  starterGhostLevel: number;
+  /** 初期アイテム */
+  starterItems: Array<{ itemId: string; quantity: number }>;
+  /** 初期マップID */
+  startMapId: string;
+  /** 開始位置 */
+  startPosition: Position;
+}
+
+// デフォルト設定
+const DEFAULT_INITIAL_CONFIG: InitialPlayerConfig = {
+  starterGhostSpeciesId: "fireling", // ヒダマリン
+  starterGhostLevel: 5,
+  starterItems: [
+    { itemId: "ghost_ball", quantity: 5 },
+    { itemId: "potion", quantity: 3 },
+  ],
+  startMapId: "starter_town",
+  startPosition: { x: 5, y: 5 },
+};
 ```
 
 ## Data Models

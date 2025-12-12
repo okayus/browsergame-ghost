@@ -6,6 +6,7 @@ import { z } from "zod";
 import { createDB } from "./db";
 import { ghostSpecies, moves } from "./db/schema";
 import { authMiddleware, getAuthInfo, requireAuth } from "./middleware/auth";
+import { initializePlayer } from "./services/playerInit";
 import { getPlayerSaveData, savePlayerData } from "./services/save";
 
 const app = new Hono<{ Bindings: Env }>()
@@ -94,7 +95,29 @@ const app = new Hono<{ Bindings: Env }>()
 
       return c.json({ success: true });
     },
-  );
+  )
+  // 新規プレイヤー初期化API
+  .post("/api/save/initialize", requireAuth(), async (c: Context<{ Bindings: Env }>) => {
+    const auth = getAuthInfo(c);
+    if (!auth?.userId) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+
+    const db = createDB(c.env.DB);
+    const result = await initializePlayer(db, auth.userId);
+
+    if (!result.success) {
+      // プレイヤーが既に存在する場合は409 Conflict
+      if (result.error === "Player already exists") {
+        return c.json({ error: result.error }, 409);
+      }
+      return c.json({ error: result.error }, 500);
+    }
+
+    // 初期化したプレイヤーのセーブデータを返す
+    const saveData = await getPlayerSaveData(db, auth.userId);
+    return c.json({ data: saveData }, 201);
+  });
 
 export type AppType = typeof app;
 export default app;
