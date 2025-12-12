@@ -369,3 +369,250 @@ describe("useMapState", () => {
     });
   });
 });
+
+describe("useMapState - 壁判定詳細テスト", () => {
+  describe("四方向の壁衝突", () => {
+    it("上方向の壁に衝突", () => {
+      const { result } = renderHook(() => useMapState());
+
+      act(() => {
+        result.current.setMap(createTestMap());
+        result.current.setPosition({ mapId: "test-map", x: 1, y: 1 });
+      });
+
+      let moveResult: ReturnType<typeof result.current.move>;
+      act(() => {
+        moveResult = result.current.move("up", 0.5);
+      });
+
+      expect(moveResult!.success).toBe(false);
+      expect(result.current.state.position.y).toBe(1);
+    });
+
+    it("下方向の壁に衝突", () => {
+      const { result } = renderHook(() => useMapState());
+
+      act(() => {
+        result.current.setMap(createTestMap());
+        result.current.setPosition({ mapId: "test-map", x: 1, y: 3 });
+      });
+
+      let moveResult: ReturnType<typeof result.current.move>;
+      act(() => {
+        moveResult = result.current.move("down", 0.5);
+      });
+
+      expect(moveResult!.success).toBe(false);
+      expect(result.current.state.position.y).toBe(3);
+    });
+
+    it("左方向の壁に衝突", () => {
+      const { result } = renderHook(() => useMapState());
+
+      act(() => {
+        result.current.setMap(createTestMap());
+        result.current.setPosition({ mapId: "test-map", x: 1, y: 2 });
+      });
+
+      let moveResult: ReturnType<typeof result.current.move>;
+      act(() => {
+        moveResult = result.current.move("left", 0.5);
+      });
+
+      expect(moveResult!.success).toBe(false);
+      expect(result.current.state.position.x).toBe(1);
+    });
+
+    it("右方向の壁に衝突", () => {
+      const { result } = renderHook(() => useMapState());
+
+      act(() => {
+        result.current.setMap(createTestMap());
+        result.current.setPosition({ mapId: "test-map", x: 3, y: 2 });
+      });
+
+      let moveResult: ReturnType<typeof result.current.move>;
+      act(() => {
+        moveResult = result.current.move("right", 0.5);
+      });
+
+      expect(moveResult!.success).toBe(false);
+      expect(result.current.state.position.x).toBe(3);
+    });
+  });
+
+  describe("連続移動での壁判定", () => {
+    it("移動可能エリアを連続移動", () => {
+      const { result } = renderHook(() => useMapState());
+
+      act(() => {
+        result.current.setMap(createTestMap());
+        result.current.setPosition({ mapId: "test-map", x: 1, y: 1 });
+      });
+
+      // 右→右→下→下の順に移動
+      act(() => {
+        result.current.move("right", 0.5);
+      });
+      expect(result.current.state.position).toEqual({ mapId: "test-map", x: 2, y: 1 });
+
+      act(() => {
+        result.current.move("right", 0.5);
+      });
+      expect(result.current.state.position).toEqual({ mapId: "test-map", x: 3, y: 1 });
+
+      act(() => {
+        result.current.move("down", 0.5);
+      });
+      expect(result.current.state.position).toEqual({ mapId: "test-map", x: 3, y: 2 });
+
+      act(() => {
+        result.current.move("down", 0.5);
+      });
+      // (3, 3)は水タイルで移動不可なので(3, 2)で止まる
+      expect(result.current.state.position).toEqual({ mapId: "test-map", x: 3, y: 2 });
+    });
+
+    it("壁に阻まれた後も他方向に移動可能", () => {
+      const { result } = renderHook(() => useMapState());
+
+      act(() => {
+        result.current.setMap(createTestMap());
+        result.current.setPosition({ mapId: "test-map", x: 1, y: 1 });
+      });
+
+      // 上（壁）→失敗→右→成功
+      let upResult: ReturnType<typeof result.current.move>;
+      act(() => {
+        upResult = result.current.move("up", 0.5);
+      });
+      expect(upResult!.success).toBe(false);
+
+      let rightResult: ReturnType<typeof result.current.move>;
+      act(() => {
+        rightResult = result.current.move("right", 0.5);
+      });
+      expect(rightResult!.success).toBe(true);
+      expect(result.current.state.position.x).toBe(2);
+    });
+  });
+
+  describe("タイルタイプ別移動制限", () => {
+    it("水タイルは移動不可", () => {
+      const { result } = renderHook(() => useMapState());
+
+      act(() => {
+        result.current.setMap(createTestMap());
+        result.current.setPosition({ mapId: "test-map", x: 2, y: 3 });
+      });
+
+      expect(result.current.canMoveTo(3, 3)).toBe(false); // 水タイル
+    });
+
+    it("草タイルは移動可能", () => {
+      const { result } = renderHook(() => useMapState());
+
+      act(() => {
+        result.current.setMap(createTestMap());
+      });
+
+      expect(result.current.canMoveTo(3, 1)).toBe(true); // 草タイル
+      expect(result.current.canMoveTo(1, 3)).toBe(true); // 草タイル
+    });
+  });
+});
+
+describe("useMapState - エンカウント詳細テスト", () => {
+  describe("エンカウント率境界値テスト", () => {
+    it.each([
+      [0, true, "エンカウント率0でエンカウント"],
+      [0.05, true, "エンカウント率0.05でエンカウント"],
+      [0.14, true, "エンカウント率境界値直前でエンカウント"],
+      [0.15, false, "エンカウント率境界値ちょうどでエンカウントなし"],
+      [0.5, false, "エンカウント率0.5でエンカウントなし"],
+      [0.99, false, "エンカウント率0.99でエンカウントなし"],
+    ])("randomValue=%d → occurred=%s (%s)", (randomValue, expectedOccurred, _desc) => {
+      const { result } = renderHook(() => useMapState());
+
+      act(() => {
+        result.current.setMap(createTestMap());
+        result.current.setPosition({ mapId: "test-map", x: 2, y: 1 });
+      });
+
+      let moveResult: ReturnType<typeof result.current.move>;
+      act(() => {
+        moveResult = result.current.move("right", randomValue); // 草タイル(0.15)への移動
+      });
+
+      expect(moveResult!.encounter?.occurred).toBe(expectedOccurred);
+    });
+  });
+
+  describe("エンカウント発生時のデータ", () => {
+    it("エンカウント時にspeciesIdが設定される", () => {
+      const { result } = renderHook(() => useMapState());
+
+      act(() => {
+        result.current.setMap(createTestMap());
+        result.current.setPosition({ mapId: "test-map", x: 2, y: 1 });
+      });
+
+      let moveResult: ReturnType<typeof result.current.move>;
+      act(() => {
+        moveResult = result.current.move("right", 0.01);
+      });
+
+      expect(moveResult!.encounter?.speciesId).toBeDefined();
+      expect(["spiritpuff", "fireling"]).toContain(moveResult!.encounter?.speciesId);
+    });
+
+    it("エンカウント時のレベルがマップ設定の範囲内", () => {
+      const { result } = renderHook(() => useMapState());
+
+      act(() => {
+        result.current.setMap(createTestMap());
+        result.current.setPosition({ mapId: "test-map", x: 2, y: 1 });
+      });
+
+      for (let i = 0; i < 20; i++) {
+        act(() => {
+          result.current.setPosition({ mapId: "test-map", x: 2, y: 1 });
+        });
+
+        let moveResult: ReturnType<typeof result.current.move>;
+        act(() => {
+          moveResult = result.current.move("right", 0.01);
+        });
+
+        const level = moveResult!.encounter?.level ?? 0;
+        expect(level).toBeGreaterThanOrEqual(2);
+        expect(level).toBeLessThanOrEqual(6);
+      }
+    });
+  });
+
+  describe("非エンカウント移動", () => {
+    it("地面タイル連続移動でエンカウントなし", () => {
+      const { result } = renderHook(() => useMapState());
+
+      act(() => {
+        result.current.setMap(createTestMap());
+        result.current.setPosition({ mapId: "test-map", x: 1, y: 2 });
+      });
+
+      // 地面タイルへの移動を複数回
+      for (let i = 0; i < 5; i++) {
+        act(() => {
+          result.current.setPosition({ mapId: "test-map", x: 1, y: 2 });
+        });
+
+        let moveResult: ReturnType<typeof result.current.move>;
+        act(() => {
+          moveResult = result.current.move("right", 0.01); // 超低乱数でも地面は0%
+        });
+
+        expect(moveResult!.encounter?.occurred).toBe(false);
+      }
+    });
+  });
+});
