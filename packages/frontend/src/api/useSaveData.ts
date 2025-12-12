@@ -90,7 +90,7 @@ export function useSaveData() {
 
   const [state, setState] = useState<SaveDataState>({
     data: null,
-    loading: true,
+    loading: false, // まだ読み込みを開始していないのでfalse
     error: null,
     lastSavedAt: null,
     saving: false,
