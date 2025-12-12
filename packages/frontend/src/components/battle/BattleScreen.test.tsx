@@ -167,6 +167,20 @@ describe("BattleScreen", () => {
       expect(screen.getByTestId("test-move-panel")).toBeInTheDocument();
     });
 
+    it("should render command panel in item_select phase", () => {
+      render(
+        <BattleScreen
+          phase="item_select"
+          playerGhost={createMockPlayerGhost()}
+          enemyGhost={createMockEnemyGhost()}
+          messages={[]}
+          commandPanel={<div data-testid="test-item-panel">Items</div>}
+        />,
+      );
+
+      expect(screen.getByTestId("test-item-panel")).toBeInTheDocument();
+    });
+
     it("should render executing indicator in executing phase", () => {
       render(
         <BattleScreen
@@ -193,6 +207,130 @@ describe("BattleScreen", () => {
 
       expect(screen.getByTestId("result-panel")).toBeInTheDocument();
       expect(screen.getByText("バトル終了")).toBeInTheDocument();
+    });
+  });
+
+  describe("全フェーズテスト", () => {
+    // 全フェーズがdata-phase属性に正しく設定されることをテスト
+    it.each([
+      ["command_select", "コマンド選択"],
+      ["move_select", "技選択"],
+      ["item_select", "アイテム選択"],
+      ["executing", "実行中"],
+      ["result", "結果表示"],
+    ] as const)("phase=%s → data-phase属性が設定される (%s)", (phase, _desc) => {
+      render(
+        <BattleScreen
+          phase={phase}
+          playerGhost={createMockPlayerGhost()}
+          enemyGhost={createMockEnemyGhost()}
+          messages={[]}
+        />,
+      );
+
+      expect(screen.getByTestId("battle-screen")).toHaveAttribute("data-phase", phase);
+    });
+
+    // 選択系フェーズでコマンドパネルが表示されることをテスト
+    it.each([
+      ["command_select", "コマンド選択"],
+      ["move_select", "技選択"],
+      ["item_select", "アイテム選択"],
+    ] as const)("phase=%s → commandPanelが表示される (%s)", (phase, _desc) => {
+      render(
+        <BattleScreen
+          phase={phase}
+          playerGhost={createMockPlayerGhost()}
+          enemyGhost={createMockEnemyGhost()}
+          messages={[]}
+          commandPanel={<div data-testid="phase-command-panel">Panel</div>}
+        />,
+      );
+
+      expect(screen.getByTestId("phase-command-panel")).toBeInTheDocument();
+    });
+
+    // executingフェーズではcommandPanelが表示されないことをテスト
+    it("executing phase should not render commandPanel", () => {
+      render(
+        <BattleScreen
+          phase="executing"
+          playerGhost={createMockPlayerGhost()}
+          enemyGhost={createMockEnemyGhost()}
+          messages={[]}
+          commandPanel={<div data-testid="should-not-appear">Panel</div>}
+        />,
+      );
+
+      expect(screen.queryByTestId("should-not-appear")).not.toBeInTheDocument();
+    });
+
+    // resultフェーズではcommandPanelが表示されないことをテスト
+    it("result phase should not render commandPanel", () => {
+      render(
+        <BattleScreen
+          phase="result"
+          playerGhost={createMockPlayerGhost()}
+          enemyGhost={createMockEnemyGhost()}
+          messages={[]}
+          commandPanel={<div data-testid="should-not-appear">Panel</div>}
+        />,
+      );
+
+      expect(screen.queryByTestId("should-not-appear")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("ゴースト状態表示", () => {
+    it("should display both ghosts with different HP", () => {
+      const playerGhost = createMockPlayerGhost();
+      playerGhost.currentHp = 10;
+      const enemyGhost = createMockEnemyGhost();
+      enemyGhost.currentHp = 5;
+
+      render(
+        <BattleScreen
+          phase="command_select"
+          playerGhost={playerGhost}
+          enemyGhost={enemyGhost}
+          messages={[]}
+        />,
+      );
+
+      expect(screen.getByTestId("player-ghost-display")).toBeInTheDocument();
+      expect(screen.getByTestId("enemy-ghost-display")).toBeInTheDocument();
+    });
+
+    it("should handle player ghost with 0 HP (fainted)", () => {
+      const playerGhost = createMockPlayerGhost();
+      playerGhost.currentHp = 0;
+
+      render(
+        <BattleScreen
+          phase="command_select"
+          playerGhost={playerGhost}
+          enemyGhost={createMockEnemyGhost()}
+          messages={[]}
+        />,
+      );
+
+      expect(screen.getByTestId("player-ghost-display")).toBeInTheDocument();
+    });
+
+    it("should handle enemy ghost with 0 HP (defeated)", () => {
+      const enemyGhost = createMockEnemyGhost();
+      enemyGhost.currentHp = 0;
+
+      render(
+        <BattleScreen
+          phase="command_select"
+          playerGhost={createMockPlayerGhost()}
+          enemyGhost={enemyGhost}
+          messages={[]}
+        />,
+      );
+
+      expect(screen.getByTestId("enemy-ghost-display")).toBeInTheDocument();
     });
   });
 
