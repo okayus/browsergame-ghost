@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+import type { AuthState } from "./hooks/useAuthState";
 
 // Mock @clerk/clerk-react
 const mockOpenSignIn = vi.fn();
@@ -19,9 +20,19 @@ vi.mock("@clerk/clerk-react", () => ({
 // Mock useAuthState hook
 const mockInitializeNewPlayer = vi.fn();
 const mockRetry = vi.fn();
+
+const createMockAuthState = (overrides: Partial<AuthState> = {}): AuthState => ({
+  isAuthenticated: false,
+  isAuthLoading: false,
+  currentScreen: "welcome",
+  isDataLoaded: false,
+  error: null,
+  ...overrides,
+});
+
 vi.mock("./hooks/useAuthState", () => ({
   useAuthState: vi.fn(() => ({
-    state: { currentScreen: "welcome", error: null },
+    state: createMockAuthState(),
     needsInitialization: false,
     initializeNewPlayer: mockInitializeNewPlayer,
     retry: mockRetry,
@@ -76,7 +87,7 @@ describe("App", () => {
   describe("ウェルカム画面", () => {
     it("authStateがwelcomeの時、WelcomeScreenが表示される", () => {
       vi.mocked(useAuthState).mockReturnValue({
-        state: { currentScreen: "welcome", error: null },
+        state: createMockAuthState({ currentScreen: "welcome" }),
         needsInitialization: false,
         initializeNewPlayer: mockInitializeNewPlayer,
         retry: mockRetry,
@@ -91,7 +102,7 @@ describe("App", () => {
   describe("ローディング画面", () => {
     it("authStateがloadingの時、LoadingScreenが表示される", () => {
       vi.mocked(useAuthState).mockReturnValue({
-        state: { currentScreen: "loading", error: null },
+        state: createMockAuthState({ currentScreen: "loading", isAuthLoading: true }),
         needsInitialization: false,
         initializeNewPlayer: mockInitializeNewPlayer,
         retry: mockRetry,
@@ -106,7 +117,11 @@ describe("App", () => {
   describe("エラー画面", () => {
     it("authStateがerrorの時、ErrorScreenが表示される", () => {
       vi.mocked(useAuthState).mockReturnValue({
-        state: { currentScreen: "error", error: "テストエラー" },
+        state: createMockAuthState({
+          currentScreen: "error",
+          error: "テストエラー",
+          isAuthenticated: true,
+        }),
         needsInitialization: false,
         initializeNewPlayer: mockInitializeNewPlayer,
         retry: mockRetry,
@@ -121,7 +136,11 @@ describe("App", () => {
   describe("ゲーム画面", () => {
     it("authStateがgameの時、GameContainerが表示される", () => {
       vi.mocked(useAuthState).mockReturnValue({
-        state: { currentScreen: "game", error: null },
+        state: createMockAuthState({
+          currentScreen: "game",
+          isAuthenticated: true,
+          isDataLoaded: true,
+        }),
         needsInitialization: false,
         initializeNewPlayer: mockInitializeNewPlayer,
         retry: mockRetry,
@@ -135,7 +154,7 @@ describe("App", () => {
   describe("デフォルト画面", () => {
     it("authStateが不明な状態の時、LoadingScreenが表示される", () => {
       vi.mocked(useAuthState).mockReturnValue({
-        state: { currentScreen: "unknown" as "loading", error: null },
+        state: createMockAuthState({ currentScreen: "unknown" as "loading" }),
         needsInitialization: false,
         initializeNewPlayer: mockInitializeNewPlayer,
         retry: mockRetry,
@@ -149,7 +168,7 @@ describe("App", () => {
   describe("新規プレイヤー初期化", () => {
     it("needsInitializationがtrueの時、initializeNewPlayerが呼ばれる", () => {
       vi.mocked(useAuthState).mockReturnValue({
-        state: { currentScreen: "loading", error: null },
+        state: createMockAuthState({ currentScreen: "loading", isAuthenticated: true }),
         needsInitialization: true,
         initializeNewPlayer: mockInitializeNewPlayer,
         retry: mockRetry,
