@@ -137,3 +137,122 @@ describe("constants", () => {
     expect(MAX_CAPTURE_RATE).toBeLessThan(1);
   });
 });
+
+describe("HP残量パターン詳細テスト", () => {
+  describe("HP残量による捕獲率変化", () => {
+    it.each([
+      [100, 100, 0.1, "100%"],
+      [90, 100, 0.14, "90%"],
+      [80, 100, 0.18, "80%"],
+      [70, 100, 0.22, "70%"],
+      [60, 100, 0.26, "60%"],
+      [50, 100, 0.3, "50%"],
+      [40, 100, 0.34, "40%"],
+      [30, 100, 0.38, "30%"],
+      [20, 100, 0.42, "20%"],
+      [10, 100, 0.46, "10%"],
+      [1, 100, 0.496, "1%"],
+      [0, 100, 0.5, "0%"],
+    ])("HP %d/%d → 捕獲率 約%.2f (%s)", (currentHp, maxHp, expectedRate, _desc) => {
+      const rate = calculateCaptureRate(currentHp, maxHp, 0);
+      expect(rate).toBeCloseTo(expectedRate, 2);
+    });
+  });
+
+  describe("異なるmaxHPでの捕獲率", () => {
+    it("maxHP 50で半分のHP", () => {
+      const rate = calculateCaptureRate(25, 50, 0);
+      expect(rate).toBeCloseTo(0.3, 2);
+    });
+
+    it("maxHP 200で半分のHP", () => {
+      const rate = calculateCaptureRate(100, 200, 0);
+      expect(rate).toBeCloseTo(0.3, 2);
+    });
+
+    it("HPの割合が同じなら捕獲率も同じ", () => {
+      const rate1 = calculateCaptureRate(50, 100, 0);
+      const rate2 = calculateCaptureRate(25, 50, 0);
+      const rate3 = calculateCaptureRate(100, 200, 0);
+      expect(rate1).toBeCloseTo(rate2, 5);
+      expect(rate2).toBeCloseTo(rate3, 5);
+    });
+  });
+
+  describe("アイテムボーナスとHP残量の組み合わせ", () => {
+    it.each([
+      [100, 0, 0.1, "フルHP + ゴーストボール"],
+      [50, 0, 0.3, "半分HP + ゴーストボール"],
+      [100, 20, 0.3, "フルHP + スーパーボール"],
+      [50, 20, 0.5, "半分HP + スーパーボール"],
+      [100, 40, 0.5, "フルHP + ハイパーボール"],
+      [50, 40, 0.7, "半分HP + ハイパーボール"],
+      [10, 40, 0.86, "瀕死HP + ハイパーボール"],
+    ])("HP %d/100, ボーナス %d%% → 捕獲率 %.2f (%s)", (hp, bonus, expectedRate, _desc) => {
+      const rate = calculateCaptureRate(hp, 100, bonus);
+      expect(rate).toBeCloseTo(expectedRate, 2);
+    });
+  });
+
+  describe("捕獲率の上限下限境界テスト", () => {
+    it("最大捕獲率は0.9を超えない（マスターボール以外）", () => {
+      const rate = calculateCaptureRate(0, 100, 80);
+      expect(rate).toBe(MAX_CAPTURE_RATE);
+    });
+
+    it("負のボーナスでも最小捕獲率を下回らない", () => {
+      const rate = calculateCaptureRate(100, 100, -100);
+      expect(rate).toBe(MIN_CAPTURE_RATE);
+    });
+
+    it("マスターボール(100%ボーナス)は常に1.0", () => {
+      const fullHp = calculateCaptureRate(100, 100, 100);
+      const lowHp = calculateCaptureRate(10, 100, 100);
+      expect(fullHp).toBe(1.0);
+      expect(lowHp).toBe(1.0);
+    });
+  });
+});
+
+describe("attemptCapture - 詳細シナリオテスト", () => {
+  describe("様々なHP残量での捕獲試行", () => {
+    it("フルHPでの捕獲は難しい", () => {
+      // roll 0.15は基本捕獲率0.1より高いので失敗
+      const result = attemptCapture(100, 100, 0, 0.15);
+      expect(result.success).toBe(false);
+    });
+
+    it("瀕死状態での捕獲は成功しやすい", () => {
+      // HP 10/100 → 捕獲率約0.46, roll 0.4なら成功
+      const result = attemptCapture(10, 100, 0, 0.4);
+      expect(result.success).toBe(true);
+    });
+
+    it("HP 0でも捕獲率は最大0.5（ボーナスなし）", () => {
+      const result = attemptCapture(0, 100, 0, 0.49);
+      expect(result.success).toBe(true);
+      expect(result.captureRate).toBe(0.5);
+    });
+  });
+
+  describe("ボール種類による捕獲確率の変化", () => {
+    const hp = 50;
+    const maxHp = 100;
+    const roll = 0.35;
+
+    it("ゴーストボール(0%ボーナス)では失敗", () => {
+      const result = attemptCapture(hp, maxHp, 0, roll);
+      expect(result.success).toBe(false); // 0.3 < 0.35
+    });
+
+    it("スーパーボール(20%ボーナス)では成功", () => {
+      const result = attemptCapture(hp, maxHp, 20, roll);
+      expect(result.success).toBe(true); // 0.5 > 0.35
+    });
+
+    it("ハイパーボール(40%ボーナス)では確実に成功", () => {
+      const result = attemptCapture(hp, maxHp, 40, roll);
+      expect(result.success).toBe(true); // 0.7 > 0.35
+    });
+  });
+});

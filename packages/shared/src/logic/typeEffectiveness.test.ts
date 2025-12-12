@@ -129,3 +129,143 @@ describe("getTypeNameJa", () => {
     expect(getTypeNameJa("normal")).toBe("ノーマル");
   });
 });
+
+describe("TYPE_CHART - 全36パターン網羅テスト", () => {
+  const expectedChart: Record<GhostType, Record<GhostType, number>> = {
+    fire: { fire: 0.5, water: 0.5, grass: 2, electric: 1, ghost: 1, normal: 1 },
+    water: { fire: 2, water: 0.5, grass: 0.5, electric: 1, ghost: 1, normal: 1 },
+    grass: { fire: 0.5, water: 2, grass: 0.5, electric: 1, ghost: 1, normal: 1 },
+    electric: { fire: 1, water: 2, grass: 0.5, electric: 0.5, ghost: 1, normal: 1 },
+    ghost: { fire: 1, water: 1, grass: 1, electric: 1, ghost: 2, normal: 0 },
+    normal: { fire: 1, water: 1, grass: 1, electric: 1, ghost: 0, normal: 1 },
+  };
+
+  const allTypes: GhostType[] = ["fire", "water", "grass", "electric", "ghost", "normal"];
+
+  describe("ほのお (fire) タイプの攻撃", () => {
+    it.each([
+      ["fire", 0.5, "今ひとつ"],
+      ["water", 0.5, "今ひとつ"],
+      ["grass", 2, "効果抜群"],
+      ["electric", 1, "等倍"],
+      ["ghost", 1, "等倍"],
+      ["normal", 1, "等倍"],
+    ] as const)("vs %s → %s倍 (%s)", (defender, expected, _desc) => {
+      expect(getTypeEffectiveness("fire", defender)).toBe(expected);
+    });
+  });
+
+  describe("みず (water) タイプの攻撃", () => {
+    it.each([
+      ["fire", 2, "効果抜群"],
+      ["water", 0.5, "今ひとつ"],
+      ["grass", 0.5, "今ひとつ"],
+      ["electric", 1, "等倍"],
+      ["ghost", 1, "等倍"],
+      ["normal", 1, "等倍"],
+    ] as const)("vs %s → %s倍 (%s)", (defender, expected, _desc) => {
+      expect(getTypeEffectiveness("water", defender)).toBe(expected);
+    });
+  });
+
+  describe("くさ (grass) タイプの攻撃", () => {
+    it.each([
+      ["fire", 0.5, "今ひとつ"],
+      ["water", 2, "効果抜群"],
+      ["grass", 0.5, "今ひとつ"],
+      ["electric", 1, "等倍"],
+      ["ghost", 1, "等倍"],
+      ["normal", 1, "等倍"],
+    ] as const)("vs %s → %s倍 (%s)", (defender, expected, _desc) => {
+      expect(getTypeEffectiveness("grass", defender)).toBe(expected);
+    });
+  });
+
+  describe("でんき (electric) タイプの攻撃", () => {
+    it.each([
+      ["fire", 1, "等倍"],
+      ["water", 2, "効果抜群"],
+      ["grass", 0.5, "今ひとつ"],
+      ["electric", 0.5, "今ひとつ"],
+      ["ghost", 1, "等倍"],
+      ["normal", 1, "等倍"],
+    ] as const)("vs %s → %s倍 (%s)", (defender, expected, _desc) => {
+      expect(getTypeEffectiveness("electric", defender)).toBe(expected);
+    });
+  });
+
+  describe("ゴースト (ghost) タイプの攻撃", () => {
+    it.each([
+      ["fire", 1, "等倍"],
+      ["water", 1, "等倍"],
+      ["grass", 1, "等倍"],
+      ["electric", 1, "等倍"],
+      ["ghost", 2, "効果抜群"],
+      ["normal", 0, "効果なし"],
+    ] as const)("vs %s → %s倍 (%s)", (defender, expected, _desc) => {
+      expect(getTypeEffectiveness("ghost", defender)).toBe(expected);
+    });
+  });
+
+  describe("ノーマル (normal) タイプの攻撃", () => {
+    it.each([
+      ["fire", 1, "等倍"],
+      ["water", 1, "等倍"],
+      ["grass", 1, "等倍"],
+      ["electric", 1, "等倍"],
+      ["ghost", 0, "効果なし"],
+      ["normal", 1, "等倍"],
+    ] as const)("vs %s → %s倍 (%s)", (defender, expected, _desc) => {
+      expect(getTypeEffectiveness("normal", defender)).toBe(expected);
+    });
+  });
+
+  it("should match expected chart for all 36 combinations", () => {
+    for (const attacker of allTypes) {
+      for (const defender of allTypes) {
+        expect(TYPE_CHART[attacker][defender]).toBe(expectedChart[attacker][defender]);
+      }
+    }
+  });
+
+  describe("相性パターン分類", () => {
+    it("should have correct super effective (2x) matchups", () => {
+      const superEffective: [GhostType, GhostType][] = [
+        ["fire", "grass"],
+        ["water", "fire"],
+        ["grass", "water"],
+        ["electric", "water"],
+        ["ghost", "ghost"],
+      ];
+      for (const [atk, def] of superEffective) {
+        expect(getTypeEffectiveness(atk, def)).toBe(2);
+      }
+    });
+
+    it("should have correct not very effective (0.5x) matchups", () => {
+      const notVeryEffective: [GhostType, GhostType][] = [
+        ["fire", "fire"],
+        ["fire", "water"],
+        ["water", "water"],
+        ["water", "grass"],
+        ["grass", "fire"],
+        ["grass", "grass"],
+        ["electric", "grass"],
+        ["electric", "electric"],
+      ];
+      for (const [atk, def] of notVeryEffective) {
+        expect(getTypeEffectiveness(atk, def)).toBe(0.5);
+      }
+    });
+
+    it("should have correct no effect (0x) matchups", () => {
+      const noEffect: [GhostType, GhostType][] = [
+        ["ghost", "normal"],
+        ["normal", "ghost"],
+      ];
+      for (const [atk, def] of noEffect) {
+        expect(getTypeEffectiveness(atk, def)).toBe(0);
+      }
+    });
+  });
+});
