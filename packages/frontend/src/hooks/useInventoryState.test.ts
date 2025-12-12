@@ -547,10 +547,12 @@ describe("useInventoryState - インベントリ操作詳細テスト", () => {
 
       const healingItems = result.current.getItemsByCategory("healing", itemMaster);
 
-      expect(healingItems.every((item) => {
-        const master = itemMaster.find((m) => m.id === item.itemId);
-        return master?.category === "healing";
-      })).toBe(true);
+      expect(
+        healingItems.every((item) => {
+          const master = itemMaster.find((m) => m.id === item.itemId);
+          return master?.category === "healing";
+        }),
+      ).toBe(true);
     });
 
     it("捕獲アイテムのみ取得", () => {
@@ -563,10 +565,12 @@ describe("useInventoryState - インベントリ操作詳細テスト", () => {
 
       const captureItems = result.current.getItemsByCategory("capture", itemMaster);
 
-      expect(captureItems.every((item) => {
-        const master = itemMaster.find((m) => m.id === item.itemId);
-        return master?.category === "capture";
-      })).toBe(true);
+      expect(
+        captureItems.every((item) => {
+          const master = itemMaster.find((m) => m.id === item.itemId);
+          return master?.category === "capture";
+        }),
+      ).toBe(true);
     });
 
     it("存在しないカテゴリは空配列", () => {

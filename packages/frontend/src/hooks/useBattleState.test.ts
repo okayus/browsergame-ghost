@@ -605,38 +605,35 @@ describe("useBattleState - バトル進行詳細テスト", () => {
       [10, 100, 0, 0.3, true, "低HP・ボーナスなしで捕獲成功"],
       [100, 100, 50, 0.5, true, "フルHP・高ボーナスで捕獲成功"],
       [100, 100, 100, 0.99, true, "マスターボールは常に成功"],
-    ])(
-      "HP=%d/%d, bonus=%d, random=%d → success=%s (%s)",
-      (currentHp, maxHp, itemBonus, captureRandom, expectedSuccess, _desc) => {
-        const { result } = renderHook(() => useBattleState());
-        const enemy: OwnedGhost = {
-          ...createMockEnemyGhost(),
-          currentHp,
-          maxHp,
-        };
+    ])("HP=%d/%d, bonus=%d, random=%d → success=%s (%s)", (currentHp, maxHp, itemBonus, captureRandom, expectedSuccess, _desc) => {
+      const { result } = renderHook(() => useBattleState());
+      const enemy: OwnedGhost = {
+        ...createMockEnemyGhost(),
+        currentHp,
+        maxHp,
+      };
 
-        act(() => {
-          result.current.startBattle(createMockPlayerGhost(), enemy, "ghost");
-        });
+      act(() => {
+        result.current.startBattle(createMockPlayerGhost(), enemy, "ghost");
+      });
 
-        let turnResult: ReturnType<typeof result.current.executePlayerAction>;
-        act(() => {
-          turnResult = result.current.executePlayerAction(
-            { type: "capture", itemBonus },
-            "fire",
-            "ghost",
-            { capture: captureRandom },
-          );
-        });
+      let turnResult: ReturnType<typeof result.current.executePlayerAction>;
+      act(() => {
+        turnResult = result.current.executePlayerAction(
+          { type: "capture", itemBonus },
+          "fire",
+          "ghost",
+          { capture: captureRandom },
+        );
+      });
 
-        if (expectedSuccess) {
-          expect(turnResult!.battleEnded).toBe(true);
-          expect(turnResult!.endReason).toBe("capture");
-        } else {
-          expect(turnResult!.battleEnded).toBe(false);
-        }
-      },
-    );
+      if (expectedSuccess) {
+        expect(turnResult!.battleEnded).toBe(true);
+        expect(turnResult!.endReason).toBe("capture");
+      } else {
+        expect(turnResult!.battleEnded).toBe(false);
+      }
+    });
   });
 
   describe("メッセージ管理テスト", () => {
