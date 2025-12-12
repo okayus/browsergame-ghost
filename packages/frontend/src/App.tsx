@@ -1,4 +1,5 @@
 import { useClerk } from "@clerk/clerk-react";
+import { getMapById } from "@ghost-game/shared";
 import { useEffect } from "react";
 import { useSaveData } from "./api";
 import { ErrorScreen } from "./components/auth/ErrorScreen";
@@ -17,7 +18,7 @@ function App() {
   const { state: authState, needsInitialization, initializeNewPlayer, retry } = useAuthState();
   const { data: saveData, saving, hasPendingCache, lastSavedAt } = useSaveData();
   const { state: gameState, setParty, setInventory, setLoaded } = useGameState();
-  const { state: mapState, setPosition, move } = useMapState();
+  const { state: mapState, setMap, setPosition, move } = useMapState();
 
   // セーブデータをゲーム状態に反映
   useEffect(() => {
@@ -25,9 +26,16 @@ function App() {
       setParty(saveData.party);
       setInventory(saveData.inventory);
       setPosition(saveData.position);
+
+      // マップデータをロード
+      const mapData = getMapById(saveData.position.mapId);
+      if (mapData) {
+        setMap(mapData);
+      }
+
       setLoaded();
     }
-  }, [saveData, gameState.isLoaded, setParty, setInventory, setPosition, setLoaded]);
+  }, [saveData, gameState.isLoaded, setParty, setInventory, setPosition, setMap, setLoaded]);
 
   // 新規プレイヤーの初期化が必要な場合は自動実行
   useEffect(() => {
