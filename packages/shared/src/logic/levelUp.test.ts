@@ -156,3 +156,109 @@ describe("getInitialMaxHp", () => {
     expect(maxHp).toBe(expected);
   });
 });
+
+describe("レベルアップエッジケーステスト", () => {
+  describe("ステータス計算の詳細テスト", () => {
+    // HP = floor((2 * baseHp * level) / 100) + level + 10
+    // Other stats = floor((2 * baseStat * level) / 100) + 5
+    // sampleBaseStats = { hp: 50, attack: 60, defense: 40, speed: 70 }
+    it.each([
+      [1, 12, 6, 5, 6],
+      [10, 30, 17, 13, 19],
+      [25, 60, 35, 25, 40],
+      [50, 110, 65, 45, 75],
+      [100, 210, 125, 85, 145],
+    ])("レベル%dでHP=%d, ATK=%d, DEF=%d, SPD=%d", (level, expectedHp, expectedAtk, expectedDef, expectedSpd) => {
+      const stats = calculateStats(sampleBaseStats, level);
+      expect(stats.hp).toBe(expectedHp);
+      expect(stats.attack).toBe(expectedAtk);
+      expect(stats.defense).toBe(expectedDef);
+      expect(stats.speed).toBe(expectedSpd);
+    });
+  });
+
+  describe("基礎ステータスの影響テスト", () => {
+    it("高い基礎ステータスは高いステータスになる", () => {
+      const highStats: BaseStats = { hp: 100, attack: 100, defense: 100, speed: 100 };
+      const lowStats: BaseStats = { hp: 30, attack: 30, defense: 30, speed: 30 };
+
+      const highResult = calculateStats(highStats, 50);
+      const lowResult = calculateStats(lowStats, 50);
+
+      expect(highResult.hp).toBeGreaterThan(lowResult.hp);
+      expect(highResult.attack).toBeGreaterThan(lowResult.attack);
+      expect(highResult.defense).toBeGreaterThan(lowResult.defense);
+      expect(highResult.speed).toBeGreaterThan(lowResult.speed);
+    });
+
+    it("基礎HP 1でもレベル1で最低限のHPを持つ", () => {
+      const minStats: BaseStats = { hp: 1, attack: 1, defense: 1, speed: 1 };
+      const stats = calculateStats(minStats, 1);
+      expect(stats.hp).toBeGreaterThan(0);
+    });
+  });
+
+  describe("技習得の境界テスト", () => {
+    it("ちょうど習得レベルで技を覚える", () => {
+      const moves = getNewLearnableMoves(sampleLearnableMoves, 7, 8);
+      expect(moves).toContain("flameCharge");
+    });
+
+    it("習得レベル-1では技を覚えない", () => {
+      const moves = getNewLearnableMoves(sampleLearnableMoves, 6, 7);
+      expect(moves).not.toContain("flameCharge");
+    });
+
+    it("同じレベルで複数の技を覚える場合", () => {
+      const movesWithMultipleAtSameLevel: LearnableMove[] = [
+        { level: 1, moveId: "tackle" },
+        { level: 1, moveId: "growl" },
+        { level: 5, moveId: "ember" },
+        { level: 5, moveId: "scratch" },
+      ];
+      const moves = getNewLearnableMoves(movesWithMultipleAtSameLevel, 4, 5);
+      expect(moves).toEqual(["ember", "scratch"]);
+    });
+
+    it("空の習得技リストでも動作する", () => {
+      const moves = getNewLearnableMoves([], 1, 10);
+      expect(moves).toEqual([]);
+    });
+  });
+
+  describe("processLevelUpの詳細テスト", () => {
+    it("レベルが変わらない場合でも正しいデータを返す", () => {
+      const result = processLevelUp(10, 10, sampleBaseStats, sampleLearnableMoves);
+      expect(result.newLevel).toBe(10);
+      expect(result.learnableMoveIds).toEqual([]);
+    });
+
+    it("大幅なレベルアップで複数の技を習得", () => {
+      const result = processLevelUp(1, 25, sampleBaseStats, sampleLearnableMoves);
+      expect(result.learnableMoveIds).toEqual(["flameCharge", "scratch", "flamethrower"]);
+    });
+
+    it("ステータスが正しく再計算される", () => {
+      const result = processLevelUp(10, 50, sampleBaseStats, sampleLearnableMoves);
+      const expectedStats = calculateStats(sampleBaseStats, 50);
+      expect(result.newStats).toEqual(expectedStats);
+      expect(result.newMaxHp).toBe(expectedStats.hp);
+    });
+  });
+});
+
+describe("HP計算の特殊ケース", () => {
+  it("HPは他のステータスより高くなる傾向がある", () => {
+    const stats = calculateStats(sampleBaseStats, 50);
+    // HP計算には+levelと+10のボーナスがある
+    expect(stats.hp).toBeGreaterThan(stats.attack);
+  });
+
+  it("レベル1でも最低HP 11は保証される", () => {
+    // HP = floor((2 * baseHp * 1) / 100) + 1 + 10
+    // baseHp = 0の場合でも 0 + 1 + 10 = 11
+    const zeroHpBase: BaseStats = { hp: 0, attack: 50, defense: 50, speed: 50 };
+    expect(calculateMaxHp(0, 1)).toBe(11);
+    expect(calculateStats(zeroHpBase, 1).hp).toBe(11);
+  });
+});

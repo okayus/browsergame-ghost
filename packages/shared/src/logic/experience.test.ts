@@ -146,3 +146,102 @@ describe("constants", () => {
     expect(BASE_EXP_MULTIPLIER).toBeGreaterThan(0);
   });
 });
+
+describe("経験値計算エッジケーステスト", () => {
+  describe("レベル閾値の境界テスト", () => {
+    it.each([
+      [1, 0, "レベル1"],
+      [2, 8, "レベル2"],
+      [3, 27, "レベル3"],
+      [5, 125, "レベル5"],
+      [10, 1000, "レベル10"],
+      [20, 8000, "レベル20"],
+      [50, 125000, "レベル50"],
+      [100, 1000000, "レベル100"],
+    ])("レベル%dに必要な経験値は%d (%s)", (level, expectedExp, _desc) => {
+      expect(getExpForLevel(level)).toBe(expectedExp);
+    });
+  });
+
+  describe("経験値からレベル逆算の境界テスト", () => {
+    it.each([
+      [0, 1, "経験値0"],
+      [7, 1, "レベル2閾値直前"],
+      [8, 2, "レベル2閾値ちょうど"],
+      [9, 2, "レベル2閾値+1"],
+      [26, 2, "レベル3閾値直前"],
+      [27, 3, "レベル3閾値ちょうど"],
+      [999, 9, "レベル10閾値直前"],
+      [1000, 10, "レベル10閾値ちょうど"],
+    ])("経験値%dはレベル%d (%s)", (exp, expectedLevel, _desc) => {
+      expect(getLevelFromExp(exp)).toBe(expectedLevel);
+    });
+  });
+
+  describe("大量経験値獲得時のレベルアップ", () => {
+    it("一度に複数レベル上がる場合", () => {
+      // レベル1から130exp獲得 → レベル5になるはず
+      const result = addExperience(1, 0, 130);
+      expect(result.newLevel).toBe(5);
+      expect(result.levelsGained).toBe(4);
+    });
+
+    it("レベル10から1000exp獲得", () => {
+      // レベル10は1000exp、レベル11は1331exp
+      // 現在1000expから+1000exp = 2000exp → レベル12(1728)超え
+      const result = addExperience(10, 1000, 1000);
+      expect(result.newExp).toBe(2000);
+      expect(result.newLevel).toBe(12);
+    });
+  });
+
+  describe("最大レベル制限テスト", () => {
+    it("デフォルト最大レベル(100)を超えない", () => {
+      const result = addExperience(99, 970299, 100000);
+      expect(result.newLevel).toBe(100);
+    });
+
+    it("カスタム最大レベル(50)を超えない", () => {
+      const result = addExperience(49, 117649, 100000, 50);
+      expect(result.newLevel).toBe(50);
+    });
+
+    it("最大レベルでもexpは加算される", () => {
+      const result = addExperience(100, 1000000, 500);
+      expect(result.newExp).toBe(1000500);
+      expect(result.newLevel).toBe(100);
+      expect(result.leveledUp).toBe(false);
+    });
+  });
+
+  describe("次レベルまでの経験値計算", () => {
+    it("レベル1で経験値0の場合、次レベルまで8", () => {
+      expect(getExpToNextLevel(1, 0)).toBe(8);
+    });
+
+    it("レベル1で経験値5の場合、次レベルまで3", () => {
+      expect(getExpToNextLevel(1, 5)).toBe(3);
+    });
+
+    it("経験値が次レベル閾値を超えている場合は0", () => {
+      expect(getExpToNextLevel(1, 100)).toBe(0);
+    });
+
+    it("高レベルでの次レベルまでの経験値", () => {
+      // レベル50→51: 125000→132651 = 7651必要
+      expect(getExpToNextLevel(50, 125000)).toBe(7651);
+    });
+  });
+});
+
+describe("敵レベルによる経験値獲得パターン", () => {
+  it.each([
+    [1, 10, "レベル1の敵"],
+    [5, 50, "レベル5の敵"],
+    [10, 100, "レベル10の敵"],
+    [25, 250, "レベル25の敵"],
+    [50, 500, "レベル50の敵"],
+  ])("レベル%dの敵を倒すと%d経験値 (%s)", (level, expectedExp, _desc) => {
+    expect(calculateExpGain(level)).toBe(expectedExp);
+  });
+});
