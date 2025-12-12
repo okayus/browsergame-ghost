@@ -156,4 +156,137 @@ describe("MapGrid", () => {
       expect(tile).toHaveStyle({ width: "32px", height: "32px" });
     });
   });
+
+  describe("タイルタイプ詳細テスト", () => {
+    // 全タイルタイプの属性テスト
+    it.each([
+      [0, 0, "wall", "false", "左上の壁"],
+      [1, 0, "ground", "true", "地面タイル"],
+      [2, 0, "grass", "true", "草むら"],
+      [3, 1, "water", "false", "水タイル"],
+    ])("tile(%d, %d) → type=%s, walkable=%s (%s)", (x, y, expectedType, expectedWalkable, _desc) => {
+      const mapData = createMockMapData();
+      render(<MapGrid mapData={mapData} playerX={1} playerY={1} />);
+
+      const tile = screen.getByTestId(`tile-${x}-${y}`);
+      expect(tile).toHaveAttribute("data-tile-type", expectedType);
+      expect(tile).toHaveAttribute("data-walkable", expectedWalkable);
+    });
+
+    // マップ全体のwalkable状態を確認
+    it("should have correct walkable tiles count", () => {
+      const mapData = createMockMapData();
+      render(<MapGrid mapData={mapData} playerX={1} playerY={1} />);
+
+      const tiles = screen.getAllByTestId(/^tile-\d+-\d+$/);
+      const walkableTiles = tiles.filter((tile) => tile.getAttribute("data-walkable") === "true");
+      // ground(1,0), grass(2,0), ground(1,1), ground(2,1) = 4 walkable tiles
+      expect(walkableTiles).toHaveLength(4);
+    });
+  });
+
+  describe("プレイヤー位置テスト", () => {
+    // プレイヤーが様々な位置に正しく表示されることをテスト
+    it.each([
+      [1, 0, "左上の地面"],
+      [2, 0, "草むら"],
+      [1, 1, "中央の地面"],
+      [2, 1, "右中央の地面"],
+    ])("player at (%d, %d) → 正しい位置に表示 (%s)", (x, y, _desc) => {
+      const mapData = createMockMapData();
+      render(<MapGrid mapData={mapData} playerX={x} playerY={y} />);
+
+      const playerMarker = screen.getByTestId("player-marker");
+      const playerTile = screen.getByTestId(`tile-${x}-${y}`);
+      expect(playerTile).toContainElement(playerMarker);
+    });
+
+    // プレイヤー位置の変更をテスト
+    it("should update player position correctly", () => {
+      const mapData = createMockMapData();
+      const { rerender } = render(<MapGrid mapData={mapData} playerX={1} playerY={0} />);
+
+      // 初期位置
+      expect(screen.getByTestId("tile-1-0")).toContainElement(screen.getByTestId("player-marker"));
+
+      // 右に移動
+      rerender(<MapGrid mapData={mapData} playerX={2} playerY={0} />);
+      expect(screen.getByTestId("tile-2-0")).toContainElement(screen.getByTestId("player-marker"));
+
+      // 下に移動
+      rerender(<MapGrid mapData={mapData} playerX={2} playerY={1} />);
+      expect(screen.getByTestId("tile-2-1")).toContainElement(screen.getByTestId("player-marker"));
+
+      // 左に移動
+      rerender(<MapGrid mapData={mapData} playerX={1} playerY={1} />);
+      expect(screen.getByTestId("tile-1-1")).toContainElement(screen.getByTestId("player-marker"));
+    });
+  });
+
+  describe("マップサイズテスト", () => {
+    it("should render larger map correctly", () => {
+      const largeMapData: MapData = {
+        id: "large-map",
+        name: "Large Map",
+        width: 10,
+        height: 10,
+        tiles: Array(10)
+          .fill(null)
+          .map(() =>
+            Array(10)
+              .fill(null)
+              .map(() => ({ type: "ground" as const, walkable: true, encounterRate: 0 })),
+          ),
+        encounters: [],
+      };
+
+      render(<MapGrid mapData={largeMapData} playerX={5} playerY={5} />);
+
+      const grid = screen.getByTestId("map-grid");
+      expect(grid).toHaveAttribute("data-width", "10");
+      expect(grid).toHaveAttribute("data-height", "10");
+
+      const tiles = screen.getAllByTestId(/^tile-\d+-\d+$/);
+      expect(tiles).toHaveLength(100); // 10 x 10
+    });
+
+    it("should render minimum 1x1 map", () => {
+      const tinyMapData: MapData = {
+        id: "tiny-map",
+        name: "Tiny Map",
+        width: 1,
+        height: 1,
+        tiles: [[{ type: "ground" as const, walkable: true, encounterRate: 0 }]],
+        encounters: [],
+      };
+
+      render(<MapGrid mapData={tinyMapData} playerX={0} playerY={0} />);
+
+      const grid = screen.getByTestId("map-grid");
+      expect(grid).toHaveAttribute("data-width", "1");
+      expect(grid).toHaveAttribute("data-height", "1");
+
+      const tiles = screen.getAllByTestId(/^tile-\d+-\d+$/);
+      expect(tiles).toHaveLength(1);
+
+      // プレイヤーも正しく表示される
+      expect(screen.getByTestId("tile-0-0")).toContainElement(screen.getByTestId("player-marker"));
+    });
+  });
+
+  describe("タイルサイズバリエーション", () => {
+    it.each([
+      [16, "16px", "小さいタイル"],
+      [32, "32px", "標準タイル"],
+      [40, "40px", "デフォルトサイズ"],
+      [48, "48px", "大きいタイル"],
+      [64, "64px", "最大サイズ"],
+    ])("tileSize=%d → %s (%s)", (tileSize, expectedSize, _desc) => {
+      const mapData = createMockMapData();
+      render(<MapGrid mapData={mapData} playerX={1} playerY={1} tileSize={tileSize} />);
+
+      const tile = screen.getByTestId("tile-0-0");
+      expect(tile).toHaveStyle({ width: expectedSize, height: expectedSize });
+    });
+  });
 });
