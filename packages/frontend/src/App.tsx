@@ -1,178 +1,124 @@
-import {
-  SignedIn,
-  SignedOut,
-  SignInButton,
-  SignUpButton,
-  UserButton,
-  useAuth,
-} from "@clerk/clerk-react";
-import { useCallback, useEffect, useState } from "react";
-import { useApiClient, useSaveData } from "./api";
+import { useClerk } from "@clerk/clerk-react";
+import { useEffect } from "react";
+import { useSaveData } from "./api";
+import { ErrorScreen } from "./components/auth/ErrorScreen";
+import { LoadingScreen } from "./components/auth/LoadingScreen";
+import { WelcomeScreen } from "./components/auth/WelcomeScreen";
+import { GameContainer } from "./components/game/GameContainer";
+import { MapScreen } from "./components/map/MapScreen";
+import { useAuthState } from "./hooks/useAuthState";
+import { useGameState } from "./hooks/useGameState";
+import type { Direction, EncounterResult } from "./hooks/useMapState";
+import { useMapState } from "./hooks/useMapState";
 
 function App() {
-  const { isSignedIn } = useAuth();
-  const { getApiClient } = useApiClient();
-  const {
-    data: saveData,
-    loading: saveLoading,
-    error: saveError,
-    lastSavedAt,
-    loadSaveData,
-  } = useSaveData();
+  const clerk = useClerk();
+  const { state: authState, needsInitialization, initializeNewPlayer, retry } = useAuthState();
+  const { data: saveData } = useSaveData();
+  const { state: gameState, setParty, setInventory, setLoaded } = useGameState();
+  const { state: mapState, setPosition, move } = useMapState();
 
-  const [message, setMessage] = useState<string>("");
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string>("");
-
-  const fetchGhosts = useCallback(async () => {
-    try {
-      setLoading(true);
-      const client = await getApiClient();
-      const response = await client.api.master.ghosts.$get();
-      const data = await response.json();
-      setMessage(`Fetched ${data.ghosts.length} ghost species from backend.`);
-    } catch (err) {
-      setError(`Failed to fetch ghost species from backend.\n${err}`);
-    } finally {
-      setLoading(false);
-    }
-  }, [getApiClient]);
-
+  // セーブデータをゲーム状態に反映
   useEffect(() => {
-    fetchGhosts();
-  }, [fetchGhosts]);
-
-  // サインイン時にセーブデータを読み込む
-  useEffect(() => {
-    if (isSignedIn) {
-      loadSaveData();
+    if (saveData && !gameState.isLoaded) {
+      setParty(saveData.party);
+      setInventory(saveData.inventory);
+      setPosition(saveData.position);
+      setLoaded();
     }
-  }, [isSignedIn, loadSaveData]);
+  }, [saveData, gameState.isLoaded, setParty, setInventory, setPosition, setLoaded]);
 
-  return (
-    <div className="min-h-screen bg-ghost-bg p-8 font-sans text-ghost-text">
-      <div className="mx-auto max-w-2xl">
-        <header className="mb-8 flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-ghost-primary-light">Ghost Game</h1>
-          <div className="flex items-center gap-4">
-            <SignedOut>
-              <SignInButton mode="modal">
-                <button
-                  type="button"
-                  className="rounded-lg bg-ghost-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-ghost-primary-light"
-                >
-                  Sign In
-                </button>
-              </SignInButton>
-              <SignUpButton mode="modal">
-                <button
-                  type="button"
-                  className="rounded-lg border border-ghost-primary px-4 py-2 text-sm font-medium text-ghost-primary-light transition-colors hover:bg-ghost-primary/20"
-                >
-                  Sign Up
-                </button>
-              </SignUpButton>
-            </SignedOut>
-            <SignedIn>
-              <UserButton
-                appearance={{
-                  elements: {
-                    avatarBox: "w-10 h-10",
-                  },
-                }}
-              />
-            </SignedIn>
+  // 新規プレイヤーの初期化が必要な場合は自動実行
+  useEffect(() => {
+    if (needsInitialization) {
+      initializeNewPlayer();
+    }
+  }, [needsInitialization, initializeNewPlayer]);
+
+  // 移動処理
+  const handleMove = (direction: Direction) => {
+    return move(direction);
+  };
+
+  // エンカウント処理
+  const handleEncounter = (encounter: EncounterResult) => {
+    // エンカウント処理（将来実装）
+    console.log("Encounter:", encounter);
+  };
+
+  // キー入力ハンドラ
+  const handleKeyDown = (key: string) => {
+    if (gameState.currentScreen === "map" && mapState.currentMap) {
+      let direction: Direction | null = null;
+      switch (key.toLowerCase()) {
+        case "w":
+        case "arrowup":
+          direction = "up";
+          break;
+        case "s":
+        case "arrowdown":
+          direction = "down";
+          break;
+        case "a":
+        case "arrowleft":
+          direction = "left";
+          break;
+        case "d":
+        case "arrowright":
+          direction = "right";
+          break;
+      }
+      if (direction) {
+        const result = move(direction);
+        if (result.encounter?.occurred) {
+          handleEncounter(result.encounter);
+        }
+      }
+    }
+  };
+
+  // 画面に応じたコンテンツをレンダリング
+  const renderContent = () => {
+    switch (authState.currentScreen) {
+      case "welcome":
+        return (
+          <WelcomeScreen onSignIn={() => clerk.openSignIn()} onSignUp={() => clerk.openSignUp()} />
+        );
+
+      case "loading":
+        return <LoadingScreen message="ゲームデータを読み込み中..." />;
+
+      case "error":
+        return <ErrorScreen error={authState.error} onRetry={retry} />;
+
+      case "game":
+        return (
+          <div className="flex min-h-screen flex-col items-center justify-center bg-gray-900 p-4">
+            <GameContainer currentScreen={gameState.currentScreen} onKeyDown={handleKeyDown}>
+              {gameState.currentScreen === "map" && mapState.currentMap && (
+                <MapScreen
+                  mapData={mapState.currentMap}
+                  playerX={mapState.position.x}
+                  playerY={mapState.position.y}
+                  onMove={handleMove}
+                  onEncounter={handleEncounter}
+                />
+              )}
+              {gameState.currentScreen === "map" && !mapState.currentMap && (
+                <div className="flex h-full items-center justify-center">
+                  <p className="text-gray-400">マップデータを読み込み中...</p>
+                </div>
+              )}
+            </GameContainer>
           </div>
-        </header>
+        );
 
-        <SignedIn>
-          <div className="mb-8 rounded-lg bg-ghost-surface p-6">
-            <h2 className="mb-4 text-xl font-semibold text-ghost-text-bright">
-              Backend API Response:
-            </h2>
-            {loading && <p className="text-ghost-text-muted animate-pulse">Loading...</p>}
-            {error && <p className="text-ghost-danger">{error}</p>}
-            {message && <p className="text-lg text-ghost-success">{message}</p>}
-          </div>
+      default:
+        return <LoadingScreen />;
+    }
+  };
 
-          <div className="mb-8 rounded-lg bg-ghost-surface p-6">
-            <h2 className="mb-4 text-xl font-semibold text-ghost-text-bright">Save Data:</h2>
-            {saveLoading && (
-              <p className="text-ghost-text-muted animate-pulse">Loading save data...</p>
-            )}
-            {saveError && <p className="text-ghost-danger">{saveError}</p>}
-            {!saveLoading && !saveError && saveData && (
-              <div className="space-y-2 text-ghost-text-muted">
-                <p>
-                  <span className="text-ghost-text-bright">Player:</span> {saveData.name}
-                </p>
-                <p>
-                  <span className="text-ghost-text-bright">Position:</span> Map{" "}
-                  {saveData.position.mapId} ({saveData.position.x}, {saveData.position.y})
-                </p>
-                <p>
-                  <span className="text-ghost-text-bright">Party:</span>{" "}
-                  {saveData.party.ghosts.length} ghosts
-                </p>
-                <p>
-                  <span className="text-ghost-text-bright">Items:</span>{" "}
-                  {saveData.inventory.items.length} types
-                </p>
-                {lastSavedAt && (
-                  <p className="text-sm text-ghost-text-muted">
-                    Last saved: {lastSavedAt.toLocaleTimeString()}
-                  </p>
-                )}
-              </div>
-            )}
-            {!saveLoading && !saveError && !saveData && (
-              <p className="text-ghost-text-muted">No save data found. Start a new game!</p>
-            )}
-          </div>
-        </SignedIn>
-
-        <SignedOut>
-          <div className="mb-8 rounded-lg bg-ghost-surface p-6 text-center">
-            <h2 className="mb-4 text-xl font-semibold text-ghost-text-bright">
-              Welcome to Ghost Game
-            </h2>
-            <p className="text-ghost-text-muted">Sign in to start your adventure!</p>
-          </div>
-        </SignedOut>
-
-        <div className="rounded-lg bg-ghost-surface p-6">
-          <h3 className="mb-4 text-lg font-semibold text-ghost-text-bright">Technologies:</h3>
-          <ul className="space-y-2 text-ghost-text-muted">
-            <li className="flex items-center gap-2">
-              <span className="text-ghost-accent-light">React 19</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="text-ghost-warning">Vite</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="text-ghost-secondary-light">TypeScript</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="text-ghost-success">Vitest</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="text-ghost-primary-light">Tailwind CSS</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="text-ghost-info">Cloudflare Pages</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="text-ghost-secondary-light">Clerk Auth</span>
-            </li>
-          </ul>
-        </div>
-
-        {isSignedIn && (
-          <p className="mt-4 text-center text-sm text-ghost-text-muted">You are signed in!</p>
-        )}
-      </div>
-    </div>
-  );
+  return renderContent();
 }
 
 export default App;
