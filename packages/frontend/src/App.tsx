@@ -1,13 +1,23 @@
 import { useClerk } from "@clerk/clerk-react";
-import { getMapById } from "@ghost-game/shared";
-import { useEffect } from "react";
+import {
+  type GhostType,
+  generateWildGhost,
+  getGhostSpeciesById,
+  getMapById,
+  getMoveById,
+} from "@ghost-game/shared";
+import { useCallback, useEffect, useState } from "react";
 import { ErrorScreen } from "./components/auth/ErrorScreen";
 import { LoadingScreen } from "./components/auth/LoadingScreen";
 import { WelcomeScreen } from "./components/auth/WelcomeScreen";
+import { BattleScreen } from "./components/battle/BattleScreen";
+import { type BattleCommand, CommandPanel } from "./components/battle/CommandPanel";
+import { type DisplayMove, SkillSelectPanel } from "./components/battle/SkillSelectPanel";
 import { GameContainer } from "./components/game/GameContainer";
 import { SaveStatus } from "./components/game/SaveStatus";
 import { MapScreen } from "./components/map/MapScreen";
 import { useAuthState } from "./hooks/useAuthState";
+import { useBattleState } from "./hooks/useBattleState";
 import { useGameState } from "./hooks/useGameState";
 import type { Direction, EncounterResult } from "./hooks/useMapState";
 import { useMapState } from "./hooks/useMapState";
@@ -24,8 +34,21 @@ function App() {
     hasPendingCache,
     lastSavedAt,
   } = useAuthState();
-  const { state: gameState, setParty, setInventory, setLoaded } = useGameState();
+  const { state: gameState, setScreen, setParty, setInventory, setLoaded } = useGameState();
   const { state: mapState, setMap, setPosition, move } = useMapState();
+  const {
+    state: battleState,
+    startBattle,
+    setPhase,
+    executePlayerAction,
+    reset: resetBattle,
+  } = useBattleState();
+
+  // バトル中のゴーストタイプを保持
+  const [playerGhostType, setPlayerGhostType] = useState<GhostType | null>(null);
+  const [enemyGhostType, setEnemyGhostType] = useState<GhostType | null>(null);
+  // キー入力状態（パネルに渡すため）
+  const [keyInput, setKeyInput] = useState<string | undefined>(undefined);
 
   // セーブデータをゲーム状態に反映
   useEffect(() => {
@@ -57,13 +80,168 @@ function App() {
   };
 
   // エンカウント処理
-  const handleEncounter = (encounter: EncounterResult) => {
-    // エンカウント処理（将来実装）
-    console.log("Encounter:", encounter);
-  };
+  const handleEncounter = useCallback(
+    (encounter: EncounterResult) => {
+      if (!encounter.occurred || !encounter.speciesId || !encounter.level) {
+        return;
+      }
+
+      // パーティから先頭のゴーストを取得
+      const playerGhost = gameState.party?.ghosts[0];
+      if (!playerGhost) {
+        console.error("No player ghost available for battle");
+        return;
+      }
+
+      // 野生ゴーストを生成
+      const wildGhost = generateWildGhost(encounter.speciesId, encounter.level);
+      if (!wildGhost) {
+        console.error("Failed to generate wild ghost:", encounter.speciesId);
+        return;
+      }
+
+      // ゴーストタイプを取得
+      const playerSpecies = getGhostSpeciesById(playerGhost.speciesId);
+      const enemySpecies = getGhostSpeciesById(encounter.speciesId);
+      if (!playerSpecies || !enemySpecies) {
+        console.error("Failed to get ghost species");
+        return;
+      }
+
+      // タイプを保存
+      setPlayerGhostType(playerSpecies.type);
+      setEnemyGhostType(enemySpecies.type);
+
+      // バトル開始
+      startBattle(playerGhost, wildGhost, enemySpecies.type);
+      setScreen("battle");
+    },
+    [gameState.party?.ghosts, startBattle, setScreen],
+  );
+
+  // バトルコマンド選択ハンドラ
+  const handleBattleCommand = useCallback(
+    (command: BattleCommand) => {
+      switch (command) {
+        case "fight":
+          setPhase("move_select");
+          break;
+        case "item":
+          // アイテム選択（将来実装）
+          break;
+        case "capture":
+          // 捕獲処理
+          if (playerGhostType && enemyGhostType) {
+            const result = executePlayerAction(
+              { type: "capture", itemBonus: 1.0 },
+              playerGhostType,
+              enemyGhostType,
+            );
+            if (result.battleEnded) {
+              // バトル終了処理
+              setTimeout(() => {
+                resetBattle();
+                setScreen("map");
+                setPlayerGhostType(null);
+                setEnemyGhostType(null);
+              }, 2000);
+            }
+          }
+          break;
+        case "run":
+          // 逃走処理
+          if (playerGhostType && enemyGhostType) {
+            const result = executePlayerAction({ type: "escape" }, playerGhostType, enemyGhostType);
+            if (result.battleEnded) {
+              // 逃走成功
+              setTimeout(() => {
+                resetBattle();
+                setScreen("map");
+                setPlayerGhostType(null);
+                setEnemyGhostType(null);
+              }, 1500);
+            }
+          }
+          break;
+      }
+    },
+    [playerGhostType, enemyGhostType, setPhase, executePlayerAction, resetBattle, setScreen],
+  );
+
+  // 技選択ハンドラ
+  const handleMoveSelect = useCallback(
+    (moveId: string) => {
+      if (!battleState.playerGhost || !playerGhostType || !enemyGhostType) {
+        return;
+      }
+
+      const moveIndex = battleState.playerGhost.ghost.moves.findIndex((m) => m.moveId === moveId);
+      if (moveIndex === -1) {
+        return;
+      }
+
+      const result = executePlayerAction(
+        { type: "attack", moveIndex },
+        playerGhostType,
+        enemyGhostType,
+      );
+
+      if (result.battleEnded) {
+        // バトル終了処理
+        setTimeout(() => {
+          resetBattle();
+          setScreen("map");
+          setPlayerGhostType(null);
+          setEnemyGhostType(null);
+        }, 2000);
+      } else {
+        // コマンド選択に戻る
+        setPhase("command_select");
+      }
+    },
+    [
+      battleState.playerGhost,
+      playerGhostType,
+      enemyGhostType,
+      executePlayerAction,
+      resetBattle,
+      setScreen,
+      setPhase,
+    ],
+  );
+
+  // 技選択から戻る
+  const handleMoveSelectBack = useCallback(() => {
+    setPhase("command_select");
+  }, [setPhase]);
+
+  // プレイヤーゴーストの技情報を取得
+  const getPlayerMoves = useCallback((): DisplayMove[] => {
+    if (!battleState.playerGhost) {
+      return [];
+    }
+
+    return battleState.playerGhost.ghost.moves
+      .map((ownedMove) => {
+        const move = getMoveById(ownedMove.moveId);
+        if (!move) {
+          return null;
+        }
+        return { move, ownedMove };
+      })
+      .filter((m): m is DisplayMove => m !== null);
+  }, [battleState.playerGhost]);
 
   // キー入力ハンドラ
   const handleKeyDown = (key: string) => {
+    // バトル画面のキー入力
+    if (gameState.currentScreen === "battle") {
+      setKeyInput(key);
+      // 次のフレームでリセット
+      setTimeout(() => setKeyInput(undefined), 0);
+      return;
+    }
+
     if (gameState.currentScreen === "map" && mapState.currentMap) {
       let direction: Direction | null = null;
       switch (key.toLowerCase()) {
@@ -132,6 +310,32 @@ function App() {
                 <div className="flex h-full items-center justify-center">
                   <p className="text-gray-400">マップデータを読み込み中...</p>
                 </div>
+              )}
+              {gameState.currentScreen === "battle" && (
+                <BattleScreen
+                  phase={battleState.phase}
+                  playerGhost={battleState.playerGhost}
+                  enemyGhost={battleState.enemyGhost}
+                  playerGhostType={playerGhostType ?? undefined}
+                  enemyGhostType={enemyGhostType ?? undefined}
+                  messages={battleState.messages}
+                  commandPanel={
+                    battleState.phase === "command_select" ? (
+                      <CommandPanel
+                        onSelectCommand={handleBattleCommand}
+                        canCapture={true}
+                        onKeyInput={keyInput}
+                      />
+                    ) : battleState.phase === "move_select" ? (
+                      <SkillSelectPanel
+                        moves={getPlayerMoves()}
+                        onSelectMove={handleMoveSelect}
+                        onBack={handleMoveSelectBack}
+                        onKeyInput={keyInput}
+                      />
+                    ) : undefined
+                  }
+                />
               )}
             </GameContainer>
           </div>
