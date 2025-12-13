@@ -34,7 +34,16 @@ export interface AuthState {
  */
 export function useAuthState() {
   const { isLoaded, isSignedIn } = useAuth();
-  const { data: saveData, loading: saveLoading, error: saveError, loadSaveData } = useSaveData();
+  const saveDataHook = useSaveData();
+  const {
+    data: saveData,
+    loading: saveLoading,
+    error: saveError,
+    saving,
+    hasPendingCache,
+    lastSavedAt,
+    loadSaveData,
+  } = saveDataHook;
   const { getApiClient } = useApiClient();
 
   const [internalError, setInternalError] = useState<string | null>(null);
@@ -150,5 +159,10 @@ export function useAuthState() {
     needsInitialization,
     initializeNewPlayer,
     retry,
+    // セーブデータ関連（App.tsxで使用）
+    saveData,
+    saving,
+    hasPendingCache,
+    lastSavedAt,
   };
 }
