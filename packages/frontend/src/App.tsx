@@ -1,7 +1,6 @@
 import { useClerk } from "@clerk/clerk-react";
 import { getMapById } from "@ghost-game/shared";
 import { useEffect } from "react";
-import { useSaveData } from "./api";
 import { ErrorScreen } from "./components/auth/ErrorScreen";
 import { LoadingScreen } from "./components/auth/LoadingScreen";
 import { WelcomeScreen } from "./components/auth/WelcomeScreen";
@@ -15,8 +14,16 @@ import { useMapState } from "./hooks/useMapState";
 
 function App() {
   const clerk = useClerk();
-  const { state: authState, needsInitialization, initializeNewPlayer, retry } = useAuthState();
-  const { data: saveData, saving, hasPendingCache, lastSavedAt } = useSaveData();
+  const {
+    state: authState,
+    needsInitialization,
+    initializeNewPlayer,
+    retry,
+    saveData,
+    saving,
+    hasPendingCache,
+    lastSavedAt,
+  } = useAuthState();
   const { state: gameState, setParty, setInventory, setLoaded } = useGameState();
   const { state: mapState, setMap, setPosition, move } = useMapState();
 
