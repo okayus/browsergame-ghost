@@ -16,6 +16,7 @@ import { type DisplayMove, SkillSelectPanel } from "./components/battle/SkillSel
 import { GameContainer } from "./components/game/GameContainer";
 import { SaveStatus } from "./components/game/SaveStatus";
 import { MapScreen } from "./components/map/MapScreen";
+import { type MenuItem, MenuScreen } from "./components/menu/MenuScreen";
 import { useAuthState } from "./hooks/useAuthState";
 import { useBattleState } from "./hooks/useBattleState";
 import { useGameState } from "./hooks/useGameState";
@@ -232,6 +233,44 @@ function App() {
       .filter((m): m is DisplayMove => m !== null);
   }, [battleState.playerGhost]);
 
+  // メニューを開く
+  const handleOpenMenu = useCallback(() => {
+    setScreen("menu");
+  }, [setScreen]);
+
+  // メニューを閉じる
+  const handleCloseMenu = useCallback(() => {
+    setScreen("map");
+  }, [setScreen]);
+
+  // メニュー項目選択ハンドラ
+  const handleMenuSelect = useCallback(
+    (item: MenuItem) => {
+      switch (item) {
+        case "party":
+          // パーティ画面（将来実装）
+          console.log("Party screen - not implemented");
+          break;
+        case "items":
+          // アイテム画面（将来実装）
+          console.log("Items screen - not implemented");
+          break;
+        case "save":
+          // セーブ機能（将来実装）
+          console.log("Save - not implemented");
+          break;
+        case "settings":
+          // 設定画面（将来実装）
+          console.log("Settings screen - not implemented");
+          break;
+        case "close":
+          handleCloseMenu();
+          break;
+      }
+    },
+    [handleCloseMenu],
+  );
+
   // キー入力ハンドラ
   const handleKeyDown = (key: string) => {
     // バトル画面のキー入力
@@ -242,7 +281,22 @@ function App() {
       return;
     }
 
+    // メニュー画面のキー入力
+    if (gameState.currentScreen === "menu") {
+      setKeyInput(key);
+      // 次のフレームでリセット
+      setTimeout(() => setKeyInput(undefined), 0);
+      return;
+    }
+
+    // マップ画面のキー入力
     if (gameState.currentScreen === "map" && mapState.currentMap) {
+      // Escapeキーでメニューを開く
+      if (key === "Escape") {
+        handleOpenMenu();
+        return;
+      }
+
       let direction: Direction | null = null;
       switch (key.toLowerCase()) {
         case "w":
@@ -335,6 +389,13 @@ function App() {
                       />
                     ) : undefined
                   }
+                />
+              )}
+              {gameState.currentScreen === "menu" && (
+                <MenuScreen
+                  onSelectItem={handleMenuSelect}
+                  onClose={handleCloseMenu}
+                  onKeyInput={keyInput}
                 />
               )}
             </GameContainer>
