@@ -383,6 +383,34 @@ feat/task-{メジャータスク番号}.{サブタスク番号}-{簡潔な説明
   - 最終更新日時の記録と表示
   - _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5_
 
+- [ ] 18. エンカウント→バトル画面遷移統合
+- [ ] 18.1 野生ゴースト生成ロジックを実装する
+  - speciesIdとlevelからOwnedGhostを生成する関数をsharedパッケージに追加
+  - ゴースト種族マスタデータ（baseStats）をフロントエンドで利用可能にする
+  - レベルに応じた能力値計算（calculateStats, calculateMaxHp使用）
+  - 習得技の自動設定（レベル以下の習得可能技から最大4つ）
+  - _Requirements: 2.3, 4.1_
+
+- [ ] 18.2 ゴースト種族マスタデータAPIを実装する
+  - GET /api/master/ghosts エンドポイントでゴースト種族一覧を返す
+  - フロントエンドでマスタデータをキャッシュする仕組み
+  - 野生ゴースト生成時にマスタデータを参照
+  - _Requirements: 2.1, 2.2_
+
+- [ ] 18.3 エンカウント時のバトル開始処理を実装する
+  - App.tsxにuseBattleStateを統合
+  - エンカウント発生時に野生ゴーストを生成
+  - startBattle()でバトル状態を初期化
+  - setScreen("battle")でバトル画面に遷移
+  - _Requirements: 1.3, 4.1_
+
+- [ ] 18.4 バトル画面をApp.tsxに統合する
+  - gameState.currentScreen === "battle"時にBattleScreenを表示
+  - useBattleStateからバトル状態をBattleScreenに渡す
+  - CommandPanelとの連携
+  - バトル終了時のマップ画面復帰処理
+  - _Requirements: 4.1, 4.7, 4.8, 10.1_
+
 ---
 
 ## Requirements Coverage
