@@ -120,6 +120,37 @@ stateDiagram-v2
     Moving --> Exploring: 移動ブロック（壁/障害物）
 ```
 
+### パーティ画面フロー
+
+```mermaid
+sequenceDiagram
+    participant P as Player
+    participant Menu as MenuScreen
+    participant Party as PartyScreen
+    participant Detail as GhostDetailPanel
+    participant GS as GameState
+
+    P->>Menu: メニュー画面表示
+    P->>Menu: 「パーティ」選択
+    Menu->>GS: setScreen("party")
+    GS-->>Party: パーティ画面表示
+    Party->>Party: ゴースト一覧表示
+
+    loop ゴースト選択
+        P->>Party: 上下キーで移動
+        Party->>Party: 選択インデックス更新
+        P->>Party: Enterで選択
+        Party->>Detail: 選択ゴースト詳細表示
+        Detail->>P: タイプ、能力値、技を表示
+        P->>Detail: Escapeで戻る
+        Detail-->>Party: 一覧に戻る
+    end
+
+    P->>Party: Escapeでメニューへ
+    Party->>GS: setScreen("menu")
+    GS-->>Menu: メニュー画面表示
+```
+
 ### 認証・ゲーム開始フロー
 
 ```mermaid
@@ -176,6 +207,7 @@ sequenceDiagram
 | 9.1-9.4 | 逃げる | - | EscapeResult | バトルフロー |
 | 10.1-10.5 | ゲーム画面・UI | GameContainer, MessageBox | GameScreen, KeyboardInput | - |
 | 11.1-11.5 | プレイヤー登録・初期化 | PlayerInitService (Backend) | InitializePlayerRequest, PlayerData | 認証フロー |
+| 14.1-14.6 | パーティ画面表示 | PartyScreen, GhostSummaryCard, GhostDetailPanel | PartyScreenState, GhostDisplayInfo | パーティ画面フロー |
 | 12.1-12.6 | 認証状態・画面遷移 | App, LoadingScreen, useAuthState | AuthState, AppScreen | 認証フロー |
 | 13.1-13.5 | セーブデータ永続化 | useSaveData, SaveAPI | SaveData, SaveRequest | - |
 
@@ -190,7 +222,9 @@ sequenceDiagram
 | MapGrid | UI/Map | グリッドタイル描画 | 1.4, 1.5 | TileData (P0) | - |
 | BattleScreen | UI/Battle | バトル画面全体 | 4.1, 4.2, 10.2-10.3 | useBattleState (P0) | State |
 | CommandPanel | UI/Battle | コマンド選択UI | 4.2, 4.3 | BattleCommand (P0) | - |
-| PartyScreen | UI/Party | パーティ管理画面 | 6.1-6.3 | usePartyState (P0) | State |
+| PartyScreen | UI/Party | パーティ一覧・詳細表示画面 | 6.1-6.3, 14.1-14.6 | useGameState (P0), GhostSummaryCard (P1), GhostDetailPanel (P1) | State |
+| GhostSummaryCard | UI/Party | ゴースト簡易情報表示 | 14.2, 14.3 | - | - |
+| GhostDetailPanel | UI/Party | ゴースト詳細情報表示 | 14.4 | - | - |
 | useGameState | Hook | ゲーム全体状態管理 | 10.1 | - | State |
 | useMapState | Hook | マップ状態管理 | 1.1-1.3 | mapLogic (P0) | State |
 | useBattleState | Hook | バトル状態管理 | 4.1-4.8 | battleLogic (P0) | State |
@@ -337,6 +371,120 @@ type BattleAction =
 
 type BattleCommand = "fight" | "item" | "run" | "capture";
 type BattleResult = "win" | "lose" | "escape" | "captured";
+```
+
+#### PartyScreen
+
+| Field | Detail |
+|-------|--------|
+| Intent | パーティ内ゴースト一覧の表示と詳細情報の確認 |
+| Requirements | 14.1, 14.2, 14.3, 14.4, 14.5, 14.6 |
+
+**Responsibilities & Constraints**
+- メニュー画面からの遷移を受け付け
+- パーティ内ゴースト（最大6体）を一覧表示
+- 選択中のゴーストの詳細情報を表示
+- キーボード操作（上下移動、決定、キャンセル）に対応
+- キャンセル操作でメニュー画面に戻る
+
+**Dependencies**
+- Inbound: GameContainer — 画面表示 (P0)
+- Inbound: MenuScreen — 「パーティ」選択による遷移 (P0)
+- Outbound: useGameState — 画面遷移 (P0)
+- Outbound: GhostSummaryCard — ゴースト簡易表示 (P1)
+- Outbound: GhostDetailPanel — ゴースト詳細表示 (P1)
+
+**Contracts**: State [x]
+
+##### State Management
+```typescript
+type PartyScreenMode = "list" | "detail";
+
+interface PartyScreenState {
+  /** 現在の表示モード */
+  mode: PartyScreenMode;
+  /** 一覧での選択インデックス */
+  selectedIndex: number;
+  /** 詳細表示中のゴーストID（mode === "detail"時） */
+  selectedGhostId: string | null;
+}
+
+interface PartyScreenProps {
+  /** パーティデータ */
+  party: Party;
+  /** メニューに戻るコールバック */
+  onClose: () => void;
+  /** キー入力（親からの入力） */
+  onKeyInput?: string;
+}
+```
+
+#### GhostSummaryCard
+
+| Field | Detail |
+|-------|--------|
+| Intent | ゴーストの簡易情報（名前、レベル、HP）を表示 |
+| Requirements | 14.2, 14.3 |
+
+**Responsibilities & Constraints**
+- ゴーストの名前、レベル、現在HP/最大HPを表示
+- 選択状態の視覚的フィードバック
+- クリック/選択でのインタラクション
+
+**Implementation Notes**
+- プレゼンテーショナルコンポーネント
+- HPバーの視覚的表示を含む
+
+##### Props Interface
+```typescript
+interface GhostSummaryCardProps {
+  /** 表示するゴースト */
+  ghost: OwnedGhost;
+  /** ゴースト種族データ */
+  species: GhostSpecies;
+  /** 選択状態 */
+  isSelected: boolean;
+  /** クリック時のコールバック */
+  onClick: () => void;
+}
+```
+
+#### GhostDetailPanel
+
+| Field | Detail |
+|-------|--------|
+| Intent | ゴーストの詳細情報（タイプ、能力値、覚えている技）を表示 |
+| Requirements | 14.4 |
+
+**Responsibilities & Constraints**
+- ゴーストのタイプを表示
+- 能力値（HP、攻撃、防御、素早さ）を表示
+- 覚えている技の一覧（最大4つ）を表示
+- キャンセル操作で一覧に戻る
+
+**Implementation Notes**
+- 能力値はゲージまたは数値で表示
+- 技はタイプと名前を表示
+
+##### Props Interface
+```typescript
+interface GhostDetailPanelProps {
+  /** 表示するゴースト */
+  ghost: OwnedGhost;
+  /** ゴースト種族データ */
+  species: GhostSpecies;
+  /** 技データ配列 */
+  moves: Move[];
+  /** 閉じる時のコールバック */
+  onClose: () => void;
+}
+
+/** 表示用ゴースト情報 */
+interface GhostDisplayInfo {
+  ghost: OwnedGhost;
+  species: GhostSpecies;
+  moves: Move[];
+}
 ```
 
 ### Logic Layer

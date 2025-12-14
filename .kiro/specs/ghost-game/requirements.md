@@ -169,6 +169,19 @@
 4. If バックエンドとの通信に失敗した時, the ゲームシステム shall ローカルにデータを一時保存し、復旧後に同期する
 5. The ゲームシステム shall セーブデータの最終更新日時を記録する
 
+### Requirement 14: パーティ画面表示
+
+**Objective:** As a プレイヤー, I want メニューからパーティ画面を開いて手持ちゴーストを確認したい, so that バトルに出すゴーストの状態を把握できる
+
+#### Acceptance Criteria
+
+1. When プレイヤーがメニューで「パーティ」を選択した時, the ゲームシステム shall パーティ画面に遷移する
+2. The ゲームシステム shall パーティ画面で手持ちゴースト一覧（最大6体）を表示する
+3. The ゲームシステム shall 各ゴーストの名前、レベル、現在HP/最大HPを表示する
+4. When プレイヤーがゴーストを選択した時, the ゲームシステム shall そのゴーストの詳細情報（タイプ、能力値、覚えている技）を表示する
+5. The ゲームシステム shall パーティ画面でキーボード操作（上下移動、決定、キャンセル）に対応する
+6. When プレイヤーがキャンセル操作をした時, the ゲームシステム shall メニュー画面に戻る
+
 ---
 
 _Requirements generated based on steering context and EARS format guidelines_
