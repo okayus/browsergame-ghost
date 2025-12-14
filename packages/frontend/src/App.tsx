@@ -1,12 +1,15 @@
 import { useClerk } from "@clerk/clerk-react";
 import {
+  ALL_GHOST_SPECIES,
+  ALL_MOVES,
+  type GhostSpecies,
   type GhostType,
   generateWildGhost,
   getGhostSpeciesById,
   getMapById,
   getMoveById,
 } from "@ghost-game/shared";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ErrorScreen } from "./components/auth/ErrorScreen";
 import { LoadingScreen } from "./components/auth/LoadingScreen";
 import { WelcomeScreen } from "./components/auth/WelcomeScreen";
@@ -17,6 +20,7 @@ import { GameContainer } from "./components/game/GameContainer";
 import { SaveStatus } from "./components/game/SaveStatus";
 import { MapScreen } from "./components/map/MapScreen";
 import { type MenuItem, MenuScreen } from "./components/menu/MenuScreen";
+import { PartyScreen } from "./components/party/PartyScreen";
 import { useAuthState } from "./hooks/useAuthState";
 import { useBattleState } from "./hooks/useBattleState";
 import { useGameState } from "./hooks/useGameState";
@@ -50,6 +54,17 @@ function App() {
   const [enemyGhostType, setEnemyGhostType] = useState<GhostType | null>(null);
   // キー入力状態（パネルに渡すため）
   const [keyInput, setKeyInput] = useState<string | undefined>(undefined);
+
+  // ゴースト種族データのマップを作成
+  const speciesMap = useMemo(() => {
+    return ALL_GHOST_SPECIES.reduce(
+      (acc, species) => {
+        acc[species.id] = species;
+        return acc;
+      },
+      {} as Record<string, GhostSpecies>,
+    );
+  }, []);
 
   // セーブデータをゲーム状態に反映
   useEffect(() => {
@@ -248,8 +263,7 @@ function App() {
     (item: MenuItem) => {
       switch (item) {
         case "party":
-          // パーティ画面（将来実装）
-          console.log("Party screen - not implemented");
+          setScreen("party");
           break;
         case "items":
           // アイテム画面（将来実装）
@@ -268,8 +282,13 @@ function App() {
           break;
       }
     },
-    [handleCloseMenu],
+    [setScreen, handleCloseMenu],
   );
+
+  // パーティ画面を閉じる
+  const handleCloseParty = useCallback(() => {
+    setScreen("menu");
+  }, [setScreen]);
 
   // キー入力ハンドラ
   const handleKeyDown = (key: string) => {
@@ -283,6 +302,14 @@ function App() {
 
     // メニュー画面のキー入力
     if (gameState.currentScreen === "menu") {
+      setKeyInput(key);
+      // 次のフレームでリセット
+      setTimeout(() => setKeyInput(undefined), 0);
+      return;
+    }
+
+    // パーティ画面のキー入力
+    if (gameState.currentScreen === "party") {
       setKeyInput(key);
       // 次のフレームでリセット
       setTimeout(() => setKeyInput(undefined), 0);
@@ -395,6 +422,15 @@ function App() {
                 <MenuScreen
                   onSelectItem={handleMenuSelect}
                   onClose={handleCloseMenu}
+                  onKeyInput={keyInput}
+                />
+              )}
+              {gameState.currentScreen === "party" && gameState.party && (
+                <PartyScreen
+                  party={gameState.party.ghosts}
+                  speciesMap={speciesMap}
+                  moves={ALL_MOVES}
+                  onClose={handleCloseParty}
                   onKeyInput={keyInput}
                 />
               )}

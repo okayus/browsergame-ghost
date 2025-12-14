@@ -1,5 +1,12 @@
-import type { GhostType, OwnedGhost } from "@ghost-game/shared";
+import type { GhostSpecies, Move, OwnedGhost } from "@ghost-game/shared";
 import { useCallback, useEffect, useState } from "react";
+import { GhostDetailPanel } from "./GhostDetailPanel";
+import { GhostSummaryCard } from "./GhostSummaryCard";
+
+/**
+ * パーティ画面の表示モード
+ */
+type PartyScreenMode = "list" | "detail";
 
 /**
  * パーティ画面のProps
@@ -7,14 +14,12 @@ import { useCallback, useEffect, useState } from "react";
 export interface PartyScreenProps {
   /** パーティ内のゴースト一覧 */
   party: OwnedGhost[];
-  /** ゴースト種族名を取得する関数 */
-  getSpeciesName: (speciesId: string) => string;
-  /** ゴーストタイプを取得する関数 */
-  getSpeciesType: (speciesId: string) => GhostType;
-  /** 順番変更時のコールバック */
-  onReorder?: (fromIndex: number, toIndex: number) => void;
+  /** ゴースト種族データのマップ */
+  speciesMap: Record<string, GhostSpecies>;
+  /** 技データ配列 */
+  moves: Move[];
   /** 戻るボタン押下時のコールバック */
-  onBack: () => void;
+  onClose: () => void;
   /** 初期選択インデックス */
   initialSelectedIndex?: number;
   /** キー入力（親からの入力） */
@@ -22,42 +27,17 @@ export interface PartyScreenProps {
 }
 
 /**
- * タイプに応じた背景色クラス
- */
-const TYPE_COLORS: Record<GhostType, string> = {
-  fire: "bg-red-500",
-  water: "bg-blue-500",
-  grass: "bg-green-500",
-  electric: "bg-yellow-500",
-  ghost: "bg-purple-500",
-  normal: "bg-gray-400",
-};
-
-/**
- * タイプの日本語名
- */
-const TYPE_NAMES: Record<GhostType, string> = {
-  fire: "炎",
-  water: "水",
-  grass: "草",
-  electric: "電気",
-  ghost: "霊",
-  normal: "ノーマル",
-};
-
-/**
  * パーティ画面コンポーネント
  *
- * - パーティ内ゴースト一覧の表示
- * - 各ゴーストのステータス（HP、レベル、タイプ）表示
- * - ゴーストの順番変更機能
+ * - パーティ内ゴースト一覧の表示（GhostSummaryCard使用）
+ * - 選択したゴーストの詳細表示（GhostDetailPanel使用）
+ * - キーボード操作（上下移動、決定、キャンセル）に対応
  */
 export function PartyScreen({
   party,
-  getSpeciesName,
-  getSpeciesType,
-  onReorder,
-  onBack,
+  speciesMap,
+  moves,
+  onClose,
   initialSelectedIndex = 0,
   onKeyInput,
 }: PartyScreenProps) {
@@ -65,14 +45,31 @@ export function PartyScreen({
   const totalItems = party.length + 1;
   const backIndex = party.length;
 
+  const [mode, setMode] = useState<PartyScreenMode>("list");
   const [selectedIndex, setSelectedIndex] = useState(
     Math.min(initialSelectedIndex, totalItems - 1),
   );
-  const [swapSourceIndex, setSwapSourceIndex] = useState<number | null>(null);
+
+  // 詳細表示するゴーストのID
+  const selectedGhost = selectedIndex < party.length ? party[selectedIndex] : null;
+
+  // 詳細パネルを閉じる
+  const closeDetail = useCallback(() => {
+    setMode("list");
+  }, []);
 
   // キー入力処理
   const handleKeyInput = useCallback(
     (key: string) => {
+      // 詳細モードの場合
+      if (mode === "detail") {
+        if (key === "Escape") {
+          closeDetail();
+        }
+        return;
+      }
+
+      // 一覧モードの場合
       switch (key) {
         case "w":
         case "W":
@@ -85,36 +82,21 @@ export function PartyScreen({
           setSelectedIndex((prev) => (prev < totalItems - 1 ? prev + 1 : 0));
           break;
         case "Escape":
-          if (swapSourceIndex !== null) {
-            // 入れ替えモード中はキャンセル
-            setSwapSourceIndex(null);
-          } else {
-            onBack();
-          }
+          onClose();
           break;
         case "Enter":
         case " ": {
           if (selectedIndex === backIndex) {
-            if (swapSourceIndex !== null) {
-              setSwapSourceIndex(null);
-            }
-            onBack();
-          } else if (swapSourceIndex === null) {
-            // 入れ替え元を選択
-            setSwapSourceIndex(selectedIndex);
-          } else if (swapSourceIndex === selectedIndex) {
-            // 同じゴーストを選択した場合はキャンセル
-            setSwapSourceIndex(null);
+            onClose();
           } else {
-            // 入れ替え実行
-            onReorder?.(swapSourceIndex, selectedIndex);
-            setSwapSourceIndex(null);
+            // ゴースト詳細を表示
+            setMode("detail");
           }
           break;
         }
       }
     },
-    [selectedIndex, totalItems, backIndex, swapSourceIndex, onReorder, onBack],
+    [mode, selectedIndex, totalItems, backIndex, onClose, closeDetail],
   );
 
   // 親からのキー入力を処理
@@ -127,27 +109,13 @@ export function PartyScreen({
 
   // ゴーストクリック
   const handleGhostClick = (index: number) => {
-    if (index === backIndex) {
-      if (swapSourceIndex !== null) {
-        setSwapSourceIndex(null);
-      }
-      onBack();
-      return;
-    }
-
     setSelectedIndex(index);
+    setMode("detail");
+  };
 
-    if (swapSourceIndex === null) {
-      // 入れ替え元を選択
-      setSwapSourceIndex(index);
-    } else if (swapSourceIndex === index) {
-      // 同じゴーストを選択した場合はキャンセル
-      setSwapSourceIndex(null);
-    } else {
-      // 入れ替え実行
-      onReorder?.(swapSourceIndex, index);
-      setSwapSourceIndex(null);
-    }
+  // もどるボタンクリック
+  const handleBackClick = () => {
+    onClose();
   };
 
   return (
@@ -155,109 +123,62 @@ export function PartyScreen({
       {/* ヘッダー */}
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-xl font-bold text-ghost-text-bright">パーティ</h2>
-        {swapSourceIndex !== null && (
-          <span className="text-sm text-ghost-warning" data-testid="swap-mode-indicator">
-            入れ替え先を選択...
-          </span>
-        )}
       </div>
 
-      {/* ゴースト一覧 */}
-      <div className="flex flex-1 flex-col gap-2">
-        {party.map((ghost, index) => {
-          const isSelected = selectedIndex === index;
-          const isSwapSource = swapSourceIndex === index;
-          const isFainted = ghost.currentHp <= 0;
-          const speciesName = getSpeciesName(ghost.speciesId);
-          const speciesType = getSpeciesType(ghost.speciesId);
-          const displayName = ghost.nickname || speciesName;
-          const hpPercentage = Math.round((ghost.currentHp / ghost.maxHp) * 100);
+      {/* 詳細モード */}
+      {mode === "detail" && selectedGhost && (
+        <div className="flex flex-1 items-center justify-center">
+          <GhostDetailPanel
+            ghost={selectedGhost}
+            species={speciesMap[selectedGhost.speciesId]}
+            moves={moves}
+            onClose={closeDetail}
+          />
+        </div>
+      )}
 
-          return (
+      {/* 一覧モード */}
+      {mode === "list" && (
+        <>
+          {/* ゴースト一覧 */}
+          <div className="flex flex-1 flex-col gap-2">
+            {party.map((ghost, index) => {
+              const species = speciesMap[ghost.speciesId];
+              const isSelected = selectedIndex === index;
+
+              return (
+                <GhostSummaryCard
+                  key={ghost.id}
+                  ghost={ghost}
+                  species={species}
+                  isSelected={isSelected}
+                  onClick={() => handleGhostClick(index)}
+                />
+              );
+            })}
+
+            {/* もどるボタン */}
             <button
               type="button"
-              key={ghost.id}
-              onClick={() => handleGhostClick(index)}
-              className={`flex items-center justify-between rounded-lg border-2 p-3 transition-all ${
-                isSwapSource
-                  ? "border-ghost-warning bg-ghost-warning/20 text-ghost-text-bright"
-                  : isSelected
-                    ? "border-ghost-primary bg-ghost-primary/20 text-ghost-text-bright"
-                    : "border-ghost-border bg-ghost-surface text-ghost-text"
-              } ${isFainted ? "opacity-50" : ""} cursor-pointer hover:border-ghost-primary-light`}
-              data-testid={`party-ghost-${index}`}
-              data-selected={isSelected}
-              data-swap-source={isSwapSource}
-              data-fainted={isFainted}
+              onClick={handleBackClick}
+              className={`flex items-center justify-center rounded-lg border-2 p-3 transition-all ${
+                selectedIndex === backIndex
+                  ? "border-ghost-primary bg-ghost-primary/20 text-ghost-text-bright"
+                  : "border-ghost-border bg-ghost-surface text-ghost-text"
+              } cursor-pointer hover:border-ghost-primary-light`}
+              data-testid="party-back"
+              data-selected={selectedIndex === backIndex}
             >
-              <div className="flex items-center gap-3">
-                {/* 順番表示 */}
-                <span className="w-6 text-center text-sm text-ghost-text-muted">{index + 1}</span>
-                {/* タイプバッジ */}
-                <span
-                  className={`rounded px-2 py-0.5 text-xs font-bold text-white ${TYPE_COLORS[speciesType]}`}
-                  data-testid={`party-ghost-type-${index}`}
-                >
-                  {TYPE_NAMES[speciesType]}
-                </span>
-                {/* 名前 */}
-                <span className="font-bold">{displayName}</span>
-                {/* レベル */}
-                <span
-                  className="text-sm text-ghost-text-muted"
-                  data-testid={`party-ghost-level-${index}`}
-                >
-                  Lv.{ghost.level}
-                </span>
-              </div>
-              {/* HP表示 */}
-              <div className="flex items-center gap-2">
-                <div className="w-24 overflow-hidden rounded-full bg-ghost-bg">
-                  <div
-                    className={`h-2 rounded-full transition-all ${
-                      hpPercentage > 50
-                        ? "bg-ghost-success"
-                        : hpPercentage > 20
-                          ? "bg-ghost-warning"
-                          : "bg-ghost-danger"
-                    }`}
-                    style={{ width: `${hpPercentage}%` }}
-                    data-testid={`party-ghost-hp-bar-${index}`}
-                  />
-                </div>
-                <span
-                  className="w-20 text-right text-sm text-ghost-text-muted"
-                  data-testid={`party-ghost-hp-${index}`}
-                >
-                  {ghost.currentHp}/{ghost.maxHp}
-                </span>
-              </div>
+              <span className="font-bold">もどる</span>
             </button>
-          );
-        })}
+          </div>
 
-        {/* もどるボタン */}
-        <button
-          type="button"
-          onClick={() => handleGhostClick(backIndex)}
-          className={`flex items-center justify-center rounded-lg border-2 p-3 transition-all ${
-            selectedIndex === backIndex
-              ? "border-ghost-primary bg-ghost-primary/20 text-ghost-text-bright"
-              : "border-ghost-border bg-ghost-surface text-ghost-text"
-          } cursor-pointer hover:border-ghost-primary-light`}
-          data-testid="party-back"
-          data-selected={selectedIndex === backIndex}
-        >
-          <span className="font-bold">もどる</span>
-        </button>
-      </div>
-
-      {/* 操作説明 */}
-      <div className="mt-4 text-center text-sm text-ghost-text-muted">
-        {swapSourceIndex !== null
-          ? "別のゴーストを選択して入れ替え / Escapeでキャンセル"
-          : "選択して順番を入れ替え"}
-      </div>
+          {/* 操作説明 */}
+          <div className="mt-4 text-center text-sm text-ghost-text-muted">
+            選択してステータスを確認 / Esc: もどる
+          </div>
+        </>
+      )}
     </div>
   );
 }
