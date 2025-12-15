@@ -49,8 +49,8 @@ export function BattleScreen({
     >
       {/* バトルフィールド */}
       <div className="flex flex-1 flex-col p-4">
-        {/* 敵ゴースト（上部） */}
-        <div className="mb-4 flex justify-end">
+        {/* 敵ゴースト（上部）: [ステータス] --- [ゴースト] */}
+        <div className="mb-2">
           {enemyGhost && (
             <GhostDisplay ghostState={enemyGhost} isEnemy={true} ghostType={enemyGhostType} />
           )}
@@ -59,8 +59,8 @@ export function BattleScreen({
         {/* 中央エリア（エフェクト用） */}
         <div className="flex-1" data-testid="battle-effect-area" />
 
-        {/* プレイヤーゴースト（下部） */}
-        <div className="mt-4 flex justify-start">
+        {/* プレイヤーゴースト（下部）: [ゴースト] --- [ステータス] */}
+        <div className="mb-2">
           {playerGhost && (
             <GhostDisplay ghostState={playerGhost} isEnemy={false} ghostType={playerGhostType} />
           )}
