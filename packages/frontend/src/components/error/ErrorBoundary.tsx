@@ -1,13 +1,13 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 
 interface ErrorBoundaryProps {
-	children: ReactNode;
-	fallback: ReactNode | ((error: Error, reset: () => void) => ReactNode);
+  children: ReactNode;
+  fallback: ReactNode | ((error: Error, reset: () => void) => ReactNode);
 }
 
 interface ErrorBoundaryState {
-	hasError: boolean;
-	error: Error | null;
+  hasError: boolean;
+  error: Error | null;
 }
 
 /**
@@ -32,35 +32,32 @@ interface ErrorBoundaryState {
  * </ErrorBoundary>
  * ```
  */
-export class ErrorBoundary extends Component<
-	ErrorBoundaryProps,
-	ErrorBoundaryState
-> {
-	constructor(props: ErrorBoundaryProps) {
-		super(props);
-		this.state = { hasError: false, error: null };
-	}
+export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
 
-	static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-		return { hasError: true, error };
-	}
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
 
-	componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-		console.error("ErrorBoundary caught:", error, errorInfo);
-	}
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("ErrorBoundary caught:", error, errorInfo);
+  }
 
-	reset = () => {
-		this.setState({ hasError: false, error: null });
-	};
+  reset = () => {
+    this.setState({ hasError: false, error: null });
+  };
 
-	render() {
-		if (this.state.hasError && this.state.error) {
-			const { fallback } = this.props;
-			if (typeof fallback === "function") {
-				return fallback(this.state.error, this.reset);
-			}
-			return fallback;
-		}
-		return this.props.children;
-	}
+  render() {
+    if (this.state.hasError && this.state.error) {
+      const { fallback } = this.props;
+      if (typeof fallback === "function") {
+        return fallback(this.state.error, this.reset);
+      }
+      return fallback;
+    }
+    return this.props.children;
+  }
 }
