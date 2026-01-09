@@ -1,168 +1,63 @@
 import { useAuth } from "@clerk/clerk-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useApiClient } from "../api/useApiClient";
-import { useSaveData } from "../api/useSaveData";
+import { useMemo } from "react";
 
 /**
  * アプリの表示画面タイプ
  */
-export type AppScreen = "welcome" | "loading" | "game" | "error";
+export type AppScreen = "welcome" | "loading" | "authenticated";
 
 /**
  * 認証状態
  */
 export interface AuthState {
-  /** 認証済みかどうか */
-  isAuthenticated: boolean;
-  /** 認証読み込み中 */
-  isAuthLoading: boolean;
-  /** 現在表示すべき画面 */
-  currentScreen: AppScreen;
-  /** セーブデータ読み込み済みかどうか */
-  isDataLoaded: boolean;
-  /** エラーメッセージ */
-  error: string | null;
+	/** 認証済みかどうか */
+	isAuthenticated: boolean;
+	/** 認証読み込み中 */
+	isAuthLoading: boolean;
+	/** 現在表示すべき画面 */
+	currentScreen: AppScreen;
 }
 
 /**
- * 認証状態を管理し、アプリ画面を制御するフック
+ * 認証状態を管理するシンプルなフック
  *
  * - Clerk認証状態を監視し、適切な画面を決定
- * - 認証成功時にセーブデータ読み込みをトリガー
- * - セーブデータがない場合に新規プレイヤー初期化を実行
- * - エラー発生時のリトライ機能を提供
+ * - データ取得はTanStack Queryに委譲（useSaveDataQuery）
+ *
+ * 画面遷移:
+ * 1. loading → Clerkの認証状態を読み込み中
+ * 2. welcome → 未認証（サインイン画面を表示）
+ * 3. authenticated → 認証済み（ゲームコンテンツを表示）
  */
 export function useAuthState() {
-  const { isLoaded, isSignedIn } = useAuth();
-  const saveDataHook = useSaveData();
-  const {
-    data: saveData,
-    loading: saveLoading,
-    error: saveError,
-    saving,
-    hasPendingCache,
-    lastSavedAt,
-    loadSaveData,
-  } = saveDataHook;
-  const { getApiClient } = useApiClient();
+	const { isLoaded, isSignedIn } = useAuth();
 
-  const [internalError, setInternalError] = useState<string | null>(null);
-  const [isInitializing, setIsInitializing] = useState(false);
-  const [hasTriedLoading, setHasTriedLoading] = useState(false);
+	// 認証状態から派生する状態
+	const isAuthenticated = isLoaded && isSignedIn === true;
+	const isAuthLoading = !isLoaded;
 
-  // 認証状態から派生する状態
-  const isAuthenticated = isLoaded && isSignedIn === true;
-  const isAuthLoading = !isLoaded;
+	// 現在の画面を決定
+	const currentScreen = useMemo((): AppScreen => {
+		// 認証読み込み中
+		if (!isLoaded) {
+			return "loading";
+		}
 
-  // 現在の画面を決定
-  const currentScreen = useMemo((): AppScreen => {
-    // 認証読み込み中
-    if (!isLoaded) {
-      return "loading";
-    }
+		// 未認証
+		if (!isSignedIn) {
+			return "welcome";
+		}
 
-    // 未認証
-    if (!isSignedIn) {
-      return "welcome";
-    }
+		// 認証済み（データ取得はSuspenseに委譲）
+		return "authenticated";
+	}, [isLoaded, isSignedIn]);
 
-    // エラー状態
-    if (saveError || internalError) {
-      return "error";
-    }
+	// 状態オブジェクト
+	const state: AuthState = {
+		isAuthenticated,
+		isAuthLoading,
+		currentScreen,
+	};
 
-    // セーブデータ読み込み中または初期化中
-    if (saveLoading || isInitializing) {
-      return "loading";
-    }
-
-    // セーブデータあり
-    if (saveData) {
-      return "game";
-    }
-
-    // 認証済みだがデータ読み込みが完了していない（新規プレイヤーの可能性）
-    // loading表示を維持
-    return "loading";
-  }, [isLoaded, isSignedIn, saveError, internalError, saveLoading, isInitializing, saveData]);
-
-  // セーブデータが読み込まれているかどうか
-  const isDataLoaded = saveData !== null && !saveLoading;
-
-  // 新規プレイヤー初期化が必要かどうか
-  const needsInitialization =
-    isAuthenticated && !saveLoading && saveData === null && hasTriedLoading && !saveError;
-
-  /**
-   * 新規プレイヤーを初期化
-   */
-  const initializeNewPlayer = useCallback(async () => {
-    setIsInitializing(true);
-    setInternalError(null);
-
-    try {
-      const client = await getApiClient();
-      const response = await client.api.save.initialize.$post();
-
-      if (!response.ok) {
-        throw new Error(`Failed to initialize player: ${response.status}`);
-      }
-
-      // 初期化成功後、セーブデータを再読み込み
-      await loadSaveData();
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Unknown error occurred";
-      setInternalError(errorMessage);
-    } finally {
-      setIsInitializing(false);
-    }
-  }, [getApiClient, loadSaveData]);
-
-  /**
-   * エラー発生時にリトライ
-   */
-  const retry = useCallback(async () => {
-    setInternalError(null);
-    setHasTriedLoading(false);
-    await loadSaveData();
-    setHasTriedLoading(true);
-  }, [loadSaveData]);
-
-  // 認証成功時にセーブデータを読み込む
-  useEffect(() => {
-    if (isAuthenticated && !hasTriedLoading && !saveLoading) {
-      loadSaveData().then(() => {
-        setHasTriedLoading(true);
-      });
-    }
-  }, [isAuthenticated, hasTriedLoading, saveLoading, loadSaveData]);
-
-  // サインアウト時に状態をリセット
-  useEffect(() => {
-    if (!isSignedIn && hasTriedLoading) {
-      setHasTriedLoading(false);
-      setInternalError(null);
-    }
-  }, [isSignedIn, hasTriedLoading]);
-
-  // 状態オブジェクト
-  const state: AuthState = {
-    isAuthenticated,
-    isAuthLoading,
-    currentScreen,
-    isDataLoaded,
-    error: saveError || internalError,
-  };
-
-  return {
-    state,
-    needsInitialization,
-    initializeNewPlayer,
-    retry,
-    // セーブデータ関連（App.tsxで使用）
-    saveData,
-    saving,
-    hasPendingCache,
-    lastSavedAt,
-  };
+	return { state };
 }

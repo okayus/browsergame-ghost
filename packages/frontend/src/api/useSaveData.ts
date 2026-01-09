@@ -1,4 +1,14 @@
-import type { Inventory, Party, PlayerData, PlayerPosition } from "@ghost-game/shared";
+import {
+	useMutation,
+	useQueryClient,
+	useSuspenseQuery,
+} from "@tanstack/react-query";
+import type {
+	Inventory,
+	Party,
+	PlayerData,
+	PlayerPosition,
+} from "@ghost-game/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useApiClient } from "./useApiClient";
 
@@ -8,332 +18,312 @@ const AUTO_SAVE_INTERVAL = 30000; // 30秒
 /** ローカルキャッシュのキー */
 const PENDING_CACHE_KEY = "ghost-game-pending-save";
 
+/** クエリキー */
+export const SAVE_DATA_QUERY_KEY = ["saveData"] as const;
+
 /**
  * 保留中のキャッシュデータ
  */
 interface PendingCacheData {
-  position?: PlayerPosition;
-  party?: Party;
-  inventory?: Inventory;
-  timestamp: number;
-}
-
-/**
- * セーブデータの状態
- */
-export interface SaveDataState {
-  /** セーブデータ */
-  data: PlayerData | null;
-  /** 読み込み中かどうか */
-  loading: boolean;
-  /** エラーメッセージ */
-  error: string | null;
-  /** 最後にセーブした時刻 */
-  lastSavedAt: Date | null;
-  /** セーブ中かどうか */
-  saving: boolean;
-  /** 保留中のキャッシュがあるかどうか */
-  hasPendingCache: boolean;
+	position?: PlayerPosition;
+	party?: Party;
+	inventory?: Inventory;
+	timestamp: number;
 }
 
 /**
  * ローカルストレージから保留キャッシュを読み込む
  */
 function loadPendingCache(): PendingCacheData | null {
-  try {
-    const cached = localStorage.getItem(PENDING_CACHE_KEY);
-    if (cached) {
-      return JSON.parse(cached) as PendingCacheData;
-    }
-  } catch {
-    // パースエラーは無視
-  }
-  return null;
+	try {
+		const cached = localStorage.getItem(PENDING_CACHE_KEY);
+		if (cached) {
+			return JSON.parse(cached) as PendingCacheData;
+		}
+	} catch {
+		// パースエラーは無視
+	}
+	return null;
 }
 
 /**
  * ローカルストレージに保留キャッシュを保存
  */
 function savePendingCache(data: PendingCacheData): void {
-  try {
-    localStorage.setItem(PENDING_CACHE_KEY, JSON.stringify(data));
-  } catch {
-    // ストレージエラーは無視
-  }
+	try {
+		localStorage.setItem(PENDING_CACHE_KEY, JSON.stringify(data));
+	} catch {
+		// ストレージエラーは無視
+	}
 }
 
 /**
  * ローカルストレージから保留キャッシュを削除
  */
 function clearPendingCache(): void {
-  try {
-    localStorage.removeItem(PENDING_CACHE_KEY);
-  } catch {
-    // ストレージエラーは無視
-  }
+	try {
+		localStorage.removeItem(PENDING_CACHE_KEY);
+	} catch {
+		// ストレージエラーは無視
+	}
 }
 
 /**
- * セーブ/ロード機能を提供するフック
+ * セーブデータを取得するフック（Suspense対応）
  *
- * - ゲーム開始時のセーブデータ読み込み
- * - 定期的な自動セーブ（30秒間隔）
- * - 手動セーブ機能
- * - オフライン時のローカルキャッシュ保存
- * - 復旧時の自動同期
+ * useSuspenseQueryを使用するため、親コンポーネントにSuspenseが必要。
+ * 新規プレイヤーの場合はnullを返す（404レスポンス）。
+ *
+ * @example
+ * ```tsx
+ * <Suspense fallback={<Loading />}>
+ *   <GameContent /> // ここで useSaveDataQuery を使用
+ * </Suspense>
+ * ```
  */
-export function useSaveData() {
-  const { getApiClient } = useApiClient();
+export function useSaveDataQuery() {
+	const { getApiClient } = useApiClient();
 
-  // 初期化時に保留キャッシュをチェック
-  const initialPendingCache = loadPendingCache();
+	return useSuspenseQuery({
+		queryKey: SAVE_DATA_QUERY_KEY,
+		queryFn: async () => {
+			const client = await getApiClient();
+			const response = await client.api.save.$get();
 
-  const [state, setState] = useState<SaveDataState>({
-    data: null,
-    loading: false, // まだ読み込みを開始していないのでfalse
-    error: null,
-    lastSavedAt: null,
-    saving: false,
-    hasPendingCache: initialPendingCache !== null,
-  });
+			if (response.status === 404) {
+				// セーブデータが存在しない（新規プレイヤー）
+				return null;
+			}
 
-  // 自動セーブ用のデータ参照
-  const pendingSaveDataRef = useRef<{
-    position?: PlayerPosition;
-    party?: Party;
-    inventory?: Inventory;
-  } | null>(null);
+			if (!response.ok) {
+				throw new Error(`Failed to load save data: ${response.status}`);
+			}
 
-  /**
-   * セーブデータを読み込む
-   */
-  const loadSaveData = useCallback(async () => {
-    setState((prev) => ({ ...prev, loading: true, error: null }));
+			const result = await response.json();
+			return result.data as PlayerData;
+		},
+	});
+}
 
-    try {
-      const client = await getApiClient();
-      const response = await client.api.save.$get();
+/**
+ * セーブデータ更新用のMutationフック
+ */
+export function useSaveDataMutation() {
+	const { getApiClient } = useApiClient();
+	const queryClient = useQueryClient();
 
-      if (!response.ok) {
-        if (response.status === 404) {
-          // セーブデータが存在しない（新規プレイヤー）
-          setState((prev) => ({
-            ...prev,
-            data: null,
-            loading: false,
-            error: null,
-          }));
-          return null;
-        }
-        throw new Error(`Failed to load save data: ${response.status}`);
-      }
+	return useMutation({
+		mutationFn: async (data: {
+			position?: PlayerPosition;
+			party?: Party;
+			inventory?: Inventory;
+		}) => {
+			const client = await getApiClient();
+			const response = await client.api.save.$post({
+				json: data,
+			});
 
-      const result = await response.json();
-      const saveData = result.data as PlayerData;
+			if (!response.ok) {
+				throw new Error(`Failed to save data: ${response.status}`);
+			}
 
-      setState((prev) => ({
-        ...prev,
-        data: saveData,
-        loading: false,
-        error: null,
-      }));
+			// 成功時は保留キャッシュをクリア
+			clearPendingCache();
 
-      return saveData;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Unknown error occurred";
-      setState((prev) => ({
-        ...prev,
-        loading: false,
-        error: errorMessage,
-      }));
-      return null;
-    }
-  }, [getApiClient]);
+			return data;
+		},
+		onSuccess: (data) => {
+			// キャッシュを更新
+			queryClient.setQueryData(
+				SAVE_DATA_QUERY_KEY,
+				(oldData: PlayerData | null) => {
+					if (!oldData) return null;
+					return {
+						...oldData,
+						...(data.position && { position: data.position }),
+						...(data.party && { party: data.party }),
+						...(data.inventory && { inventory: data.inventory }),
+						updatedAt: new Date().toISOString(),
+					};
+				},
+			);
+		},
+		onError: (_error, data) => {
+			// 失敗時はローカルキャッシュに保存
+			const pendingCache: PendingCacheData = {
+				...data,
+				timestamp: Date.now(),
+			};
+			savePendingCache(pendingCache);
+		},
+	});
+}
 
-  /**
-   * セーブデータを保存する
-   */
-  const saveData = useCallback(
-    async (data: { position?: PlayerPosition; party?: Party; inventory?: Inventory }) => {
-      setState((prev) => ({ ...prev, saving: true }));
+/**
+ * 新規プレイヤー初期化用のMutationフック
+ */
+export function useInitializePlayerMutation() {
+	const { getApiClient } = useApiClient();
+	const queryClient = useQueryClient();
 
-      try {
-        const client = await getApiClient();
-        const response = await client.api.save.$post({
-          json: data,
-        });
+	return useMutation({
+		mutationFn: async () => {
+			const client = await getApiClient();
+			const response = await client.api.save.initialize.$post();
 
-        if (!response.ok) {
-          throw new Error(`Failed to save data: ${response.status}`);
-        }
+			if (!response.ok) {
+				throw new Error(`Failed to initialize player: ${response.status}`);
+			}
 
-        // 成功時は保留キャッシュをクリア
-        clearPendingCache();
+			return response.json();
+		},
+		onSuccess: () => {
+			// 初期化成功後、セーブデータを再取得
+			queryClient.invalidateQueries({ queryKey: SAVE_DATA_QUERY_KEY });
+		},
+	});
+}
 
-        setState((prev) => ({
-          ...prev,
-          saving: false,
-          lastSavedAt: new Date(),
-          hasPendingCache: false,
-          // ローカルデータも更新
-          data: prev.data
-            ? {
-                ...prev.data,
-                ...(data.position && { position: data.position }),
-                ...(data.party && { party: data.party }),
-                ...(data.inventory && { inventory: data.inventory }),
-                updatedAt: new Date().toISOString(),
-              }
-            : null,
-        }));
+/**
+ * 自動セーブとオフライン同期を管理するフック
+ *
+ * - 30秒間隔の自動セーブ
+ * - オンライン復帰時の保留キャッシュ同期
+ * - ページ離脱前の処理
+ */
+export function useAutoSave() {
+	const { getApiClient } = useApiClient();
+	const saveMutation = useSaveDataMutation();
 
-        return true;
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : "Unknown error occurred";
+	// 初期化時に保留キャッシュをチェック
+	const [hasPendingCache, setHasPendingCache] = useState(
+		() => loadPendingCache() !== null,
+	);
+	const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
 
-        // 失敗時はローカルキャッシュに保存
-        const pendingCache: PendingCacheData = {
-          ...data,
-          timestamp: Date.now(),
-        };
-        savePendingCache(pendingCache);
+	// 自動セーブ用のデータ参照
+	const pendingSaveDataRef = useRef<{
+		position?: PlayerPosition;
+		party?: Party;
+		inventory?: Inventory;
+	} | null>(null);
 
-        setState((prev) => ({
-          ...prev,
-          saving: false,
-          error: errorMessage,
-          hasPendingCache: true,
-        }));
+	/**
+	 * 自動セーブ用にデータを更新（すぐには保存しない）
+	 */
+	const updatePendingSaveData = useCallback(
+		(data: { position?: PlayerPosition; party?: Party; inventory?: Inventory }) => {
+			pendingSaveDataRef.current = {
+				...pendingSaveDataRef.current,
+				...data,
+			};
+		},
+		[],
+	);
 
-        return false;
-      }
-    },
-    [getApiClient],
-  );
+	/**
+	 * 自動セーブを実行
+	 */
+	const executeAutoSave = useCallback(async () => {
+		if (pendingSaveDataRef.current) {
+			const dataToSave = pendingSaveDataRef.current;
+			pendingSaveDataRef.current = null;
 
-  /**
-   * 保留中のキャッシュを同期する
-   */
-  const syncPendingCache = useCallback(async () => {
-    const cached = loadPendingCache();
-    if (!cached) {
-      setState((prev) => ({ ...prev, hasPendingCache: false }));
-      return true;
-    }
+			try {
+				await saveMutation.mutateAsync(dataToSave);
+				setLastSavedAt(new Date());
+				setHasPendingCache(false);
+			} catch {
+				setHasPendingCache(true);
+			}
+		}
+	}, [saveMutation]);
 
-    const { timestamp: _timestamp, ...dataToSync } = cached;
+	/**
+	 * 保留中のキャッシュを同期する
+	 */
+	const syncPendingCache = useCallback(async () => {
+		const cached = loadPendingCache();
+		if (!cached) {
+			setHasPendingCache(false);
+			return true;
+		}
 
-    try {
-      const client = await getApiClient();
-      const response = await client.api.save.$post({
-        json: dataToSync,
-      });
+		const { timestamp: _timestamp, ...dataToSync } = cached;
 
-      if (!response.ok) {
-        throw new Error(`Failed to sync data: ${response.status}`);
-      }
+		try {
+			const client = await getApiClient();
+			const response = await client.api.save.$post({
+				json: dataToSync,
+			});
 
-      // 成功時は保留キャッシュをクリア
-      clearPendingCache();
+			if (!response.ok) {
+				throw new Error(`Failed to sync data: ${response.status}`);
+			}
 
-      setState((prev) => ({
-        ...prev,
-        lastSavedAt: new Date(),
-        hasPendingCache: false,
-        // ローカルデータも更新
-        data: prev.data
-          ? {
-              ...prev.data,
-              ...(dataToSync.position && { position: dataToSync.position }),
-              ...(dataToSync.party && { party: dataToSync.party }),
-              ...(dataToSync.inventory && { inventory: dataToSync.inventory }),
-              updatedAt: new Date().toISOString(),
-            }
-          : null,
-      }));
+			// 成功時は保留キャッシュをクリア
+			clearPendingCache();
+			setLastSavedAt(new Date());
+			setHasPendingCache(false);
 
-      return true;
-    } catch {
-      // 同期失敗時はキャッシュを維持
-      return false;
-    }
-  }, [getApiClient]);
+			return true;
+		} catch {
+			// 同期失敗時はキャッシュを維持
+			return false;
+		}
+	}, [getApiClient]);
 
-  /**
-   * 自動セーブ用にデータを更新（すぐには保存しない）
-   */
-  const updatePendingSaveData = useCallback(
-    (data: { position?: PlayerPosition; party?: Party; inventory?: Inventory }) => {
-      pendingSaveDataRef.current = {
-        ...pendingSaveDataRef.current,
-        ...data,
-      };
-    },
-    [],
-  );
+	// 自動セーブのセットアップ
+	useEffect(() => {
+		const intervalId = setInterval(() => {
+			executeAutoSave();
+		}, AUTO_SAVE_INTERVAL);
 
-  /**
-   * 自動セーブを実行
-   */
-  const executeAutoSave = useCallback(async () => {
-    if (pendingSaveDataRef.current) {
-      const dataToSave = pendingSaveDataRef.current;
-      pendingSaveDataRef.current = null;
-      await saveData(dataToSave);
-    }
-  }, [saveData]);
+		return () => {
+			clearInterval(intervalId);
+		};
+	}, [executeAutoSave]);
 
-  // 自動セーブのセットアップ
-  useEffect(() => {
-    const intervalId = setInterval(() => {
-      executeAutoSave();
-    }, AUTO_SAVE_INTERVAL);
+	// ページを離れる前にセーブ
+	useEffect(() => {
+		const handleBeforeUnload = () => {
+			if (pendingSaveDataRef.current) {
+				// 同期的にセーブを試みる（ベストエフォート）
+				const dataToSave = pendingSaveDataRef.current;
+				pendingSaveDataRef.current = null;
+				// Note: ここでは非同期処理は完了を待てないので、
+				// navigator.sendBeaconを使うか、単純に無視するかの選択になる
+				// 今回は30秒間隔の自動セーブがあるので、ここでは何もしない
+				console.log("Pending save data on unload:", dataToSave);
+			}
+		};
 
-    return () => {
-      clearInterval(intervalId);
-    };
-  }, [executeAutoSave]);
+		window.addEventListener("beforeunload", handleBeforeUnload);
+		return () => {
+			window.removeEventListener("beforeunload", handleBeforeUnload);
+		};
+	}, []);
 
-  // ページを離れる前にセーブ
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (pendingSaveDataRef.current) {
-        // 同期的にセーブを試みる（ベストエフォート）
-        const dataToSave = pendingSaveDataRef.current;
-        pendingSaveDataRef.current = null;
-        // Note: ここでは非同期処理は完了を待てないので、
-        // navigator.sendBeaconを使うか、単純に無視するかの選択になる
-        // 今回は30秒間隔の自動セーブがあるので、ここでは何もしない
-        console.log("Pending save data on unload:", dataToSave);
-      }
-    };
+	// オンライン復帰時に保留キャッシュを同期
+	useEffect(() => {
+		const handleOnline = () => {
+			if (hasPendingCache) {
+				syncPendingCache();
+			}
+		};
 
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-    };
-  }, []);
+		window.addEventListener("online", handleOnline);
+		return () => {
+			window.removeEventListener("online", handleOnline);
+		};
+	}, [hasPendingCache, syncPendingCache]);
 
-  // オンライン復帰時に保留キャッシュを同期
-  useEffect(() => {
-    const handleOnline = () => {
-      if (state.hasPendingCache) {
-        syncPendingCache();
-      }
-    };
-
-    window.addEventListener("online", handleOnline);
-    return () => {
-      window.removeEventListener("online", handleOnline);
-    };
-  }, [state.hasPendingCache, syncPendingCache]);
-
-  return {
-    ...state,
-    loadSaveData,
-    saveData,
-    updatePendingSaveData,
-    executeAutoSave,
-    syncPendingCache,
-  };
+	return {
+		saving: saveMutation.isPending,
+		hasPendingCache,
+		lastSavedAt,
+		updatePendingSaveData,
+		executeAutoSave,
+		syncPendingCache,
+	};
 }
