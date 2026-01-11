@@ -99,21 +99,12 @@ export function useBattleEndSync(
   const { state, updatePartyGhost, setParty } = gameState;
 
   const syncPartyHp = useCallback(
-    (
-      battleState: BattleState,
-      endReason: BattleEndReason,
-      activeGhostId: string,
-    ) => {
+    (battleState: BattleState, endReason: BattleEndReason, activeGhostId: string) => {
       if (!state.party) {
         return;
       }
 
-      const result = syncPartyHpAfterBattle(
-        battleState,
-        endReason,
-        state.party,
-        activeGhostId,
-      );
+      const result = syncPartyHpAfterBattle(battleState, endReason, state.party, activeGhostId);
 
       // パーティを更新
       if (endReason === "player_lose") {

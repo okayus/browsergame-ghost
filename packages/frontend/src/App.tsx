@@ -255,8 +255,7 @@ function AuthenticatedContent() {
       }
     },
     [
-      battleState.playerGhost,
-      battleState.endReason,
+      battleState,
       gameState.party?.ghosts,
       playerGhostType,
       enemyGhostType,

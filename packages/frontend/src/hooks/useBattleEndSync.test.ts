@@ -1,13 +1,9 @@
 import type { OwnedGhost, Party } from "@ghost-game/shared";
 import { describe, expect, it } from "vitest";
-import type { BattleEndReason, BattleState } from "./useBattleState";
 import { syncPartyHpAfterBattle } from "./useBattleEndSync";
+import type { BattleEndReason, BattleState } from "./useBattleState";
 
-const createMockGhost = (
-  id: string,
-  currentHp: number,
-  maxHp: number,
-): OwnedGhost => ({
+const createMockGhost = (id: string, currentHp: number, maxHp: number): OwnedGhost => ({
   id,
   speciesId: "fireling",
   level: 5,
@@ -54,12 +50,7 @@ describe("syncPartyHpAfterBattle", () => {
       ]);
       const battleState = createMockBattleState(30, 50, "player_win");
 
-      const result = syncPartyHpAfterBattle(
-        battleState,
-        "player_win",
-        party,
-        "ghost-1",
-      );
+      const result = syncPartyHpAfterBattle(battleState, "player_win", party, "ghost-1");
 
       expect(result.updatedParty.ghosts[0].currentHp).toBe(30);
       expect(result.updatedParty.ghosts[1].currentHp).toBe(40); // unchanged
@@ -71,12 +62,7 @@ describe("syncPartyHpAfterBattle", () => {
       const party = createMockParty([createMockGhost("ghost-1", 50, 50)]);
       const battleState = createMockBattleState(25, 50, "escape");
 
-      const result = syncPartyHpAfterBattle(
-        battleState,
-        "escape",
-        party,
-        "ghost-1",
-      );
+      const result = syncPartyHpAfterBattle(battleState, "escape", party, "ghost-1");
 
       expect(result.updatedParty.ghosts[0].currentHp).toBe(25);
     });
@@ -87,12 +73,7 @@ describe("syncPartyHpAfterBattle", () => {
       const party = createMockParty([createMockGhost("ghost-1", 50, 50)]);
       const battleState = createMockBattleState(35, 50, "capture");
 
-      const result = syncPartyHpAfterBattle(
-        battleState,
-        "capture",
-        party,
-        "ghost-1",
-      );
+      const result = syncPartyHpAfterBattle(battleState, "capture", party, "ghost-1");
 
       expect(result.updatedParty.ghosts[0].currentHp).toBe(35);
     });
@@ -107,12 +88,7 @@ describe("syncPartyHpAfterBattle", () => {
       ]);
       const battleState = createMockBattleState(0, 50, "player_lose");
 
-      const result = syncPartyHpAfterBattle(
-        battleState,
-        "player_lose",
-        party,
-        "ghost-1",
-      );
+      const result = syncPartyHpAfterBattle(battleState, "player_lose", party, "ghost-1");
 
       expect(result.updatedParty.ghosts[0].currentHp).toBe(50);
       expect(result.updatedParty.ghosts[1].currentHp).toBe(40);
@@ -134,12 +110,7 @@ describe("syncPartyHpAfterBattle", () => {
         endReason: "player_win",
       };
 
-      const result = syncPartyHpAfterBattle(
-        battleState,
-        "player_win",
-        party,
-        "ghost-1",
-      );
+      const result = syncPartyHpAfterBattle(battleState, "player_win", party, "ghost-1");
 
       // Should not crash and return unchanged party
       expect(result.updatedParty.ghosts[0].currentHp).toBe(50);
@@ -149,12 +120,7 @@ describe("syncPartyHpAfterBattle", () => {
       const party = createMockParty([createMockGhost("ghost-2", 50, 50)]);
       const battleState = createMockBattleState(30, 50, "player_win");
 
-      const result = syncPartyHpAfterBattle(
-        battleState,
-        "player_win",
-        party,
-        "ghost-1",
-      );
+      const result = syncPartyHpAfterBattle(battleState, "player_win", party, "ghost-1");
 
       // Should not crash and return unchanged party
       expect(result.updatedParty.ghosts[0].currentHp).toBe(50);
