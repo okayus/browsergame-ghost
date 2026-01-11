@@ -25,6 +25,7 @@ import { MapScreen } from "./components/map/MapScreen";
 import { type MenuItem, MenuScreen } from "./components/menu/MenuScreen";
 import { PartyScreen } from "./components/party/PartyScreen";
 import { useAuthState } from "./hooks/useAuthState";
+import { useBattleEndSync } from "./hooks/useBattleEndSync";
 import { useBattleState } from "./hooks/useBattleState";
 import { useGameState } from "./hooks/useGameState";
 import type { Direction, EncounterResult } from "./hooks/useMapState";
@@ -38,9 +39,10 @@ import { useMapState } from "./hooks/useMapState";
 function AuthenticatedContent() {
   const { data: saveData } = useSaveDataQuery();
   const initializeMutation = useInitializePlayerMutation();
-  const { saving, hasPendingCache, lastSavedAt } = useAutoSave();
+  const { saving, hasPendingCache, lastSavedAt, updatePendingSaveData } = useAutoSave();
 
-  const { state: gameState, setScreen, setParty, setInventory, setLoaded } = useGameState();
+  const gameStateHook = useGameState();
+  const { state: gameState, setScreen, setParty, setInventory, setLoaded } = gameStateHook;
   const { state: mapState, setMap, setPosition, move } = useMapState();
   const {
     state: battleState,
@@ -49,6 +51,9 @@ function AuthenticatedContent() {
     executePlayerAction,
     reset: resetBattle,
   } = useBattleState();
+
+  // バトル終了時のHP同期
+  const { syncPartyHp } = useBattleEndSync(gameStateHook, updatePendingSaveData);
 
   // バトル中のゴーストタイプを保持
   const [playerGhostType, setPlayerGhostType] = useState<GhostType | null>(null);
@@ -162,7 +167,12 @@ function AuthenticatedContent() {
               playerGhostType,
               enemyGhostType,
             );
-            if (result.battleEnded) {
+            if (result.battleEnded && battleState.endReason) {
+              // HP同期（捕獲成功時）
+              const activeGhostId = gameState.party?.ghosts[0]?.id;
+              if (activeGhostId) {
+                syncPartyHp(battleState, battleState.endReason, activeGhostId);
+              }
               // バトル終了処理
               setTimeout(() => {
                 resetBattle();
@@ -177,7 +187,12 @@ function AuthenticatedContent() {
           // 逃走処理
           if (playerGhostType && enemyGhostType) {
             const result = executePlayerAction({ type: "escape" }, playerGhostType, enemyGhostType);
-            if (result.battleEnded) {
+            if (result.battleEnded && battleState.endReason) {
+              // HP同期（逃走成功時）
+              const activeGhostId = gameState.party?.ghosts[0]?.id;
+              if (activeGhostId) {
+                syncPartyHp(battleState, battleState.endReason, activeGhostId);
+              }
               // 逃走成功
               setTimeout(() => {
                 resetBattle();
@@ -190,7 +205,17 @@ function AuthenticatedContent() {
           break;
       }
     },
-    [playerGhostType, enemyGhostType, setPhase, executePlayerAction, resetBattle, setScreen],
+    [
+      playerGhostType,
+      enemyGhostType,
+      battleState,
+      gameState.party?.ghosts,
+      setPhase,
+      executePlayerAction,
+      syncPartyHp,
+      resetBattle,
+      setScreen,
+    ],
   );
 
   // 技選択ハンドラ
@@ -211,7 +236,12 @@ function AuthenticatedContent() {
         enemyGhostType,
       );
 
-      if (result.battleEnded) {
+      if (result.battleEnded && battleState.endReason) {
+        // HP同期（勝利/敗北時）
+        const activeGhostId = gameState.party?.ghosts[0]?.id;
+        if (activeGhostId) {
+          syncPartyHp(battleState, battleState.endReason, activeGhostId);
+        }
         // バトル終了処理
         setTimeout(() => {
           resetBattle();
@@ -225,10 +255,12 @@ function AuthenticatedContent() {
       }
     },
     [
-      battleState.playerGhost,
+      battleState,
+      gameState.party?.ghosts,
       playerGhostType,
       enemyGhostType,
       executePlayerAction,
+      syncPartyHp,
       resetBattle,
       setScreen,
       setPhase,
