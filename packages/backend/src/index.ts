@@ -13,10 +13,22 @@ const app = new Hono<{ Bindings: Env }>()
   .use(
     "/*",
     cors({
-      origin: [
-        "http://localhost:5173", // Local development
-        "https://ghost-game-2yd.pages.dev", // Production
-      ],
+      origin: (origin) => {
+        // 許可するオリジンのリスト
+        const allowedOrigins = [
+          "http://localhost:5173", // Local development
+          "https://ghost-game-2yd.pages.dev", // Production
+        ];
+        // 完全一致
+        if (allowedOrigins.includes(origin)) {
+          return origin;
+        }
+        // Cloudflare Pages プレビューデプロイメント (*.ghost-game-2yd.pages.dev)
+        if (origin.endsWith(".ghost-game-2yd.pages.dev")) {
+          return origin;
+        }
+        return null;
+      },
       allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       allowHeaders: ["Content-Type", "Authorization"],
       exposeHeaders: ["Content-Length"],
