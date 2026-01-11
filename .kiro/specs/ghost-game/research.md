@@ -133,6 +133,90 @@
 - **データ整合性**: クライアント側のゲームデータ改ざん → 重要データはバックエンドで検証
 - **認証エラー**: Clerkトークン期限切れ → 自動リフレッシュ + エラーハンドリング
 
+---
+
+## 要件15-17追加調査 (2026-01-11)
+
+### Summary (Extension)
+- **Discovery Scope**: Extension（既存システムへの機能追加）
+- **Key Findings**:
+  - `updatePartyGhost()`が実装済みで、バトル後HP同期に活用可能
+  - `ItemSelectPanel`コンポーネントがUI実装済みだが、ロジック接続が欠落
+  - `useSaveDataMutation()`が実装済みで、手動セーブに即利用可能
+
+### バトル状態とゲーム状態の同期
+- **Context**: バトル終了後にパーティHPが更新されない問題の調査
+- **Sources Consulted**:
+  - `packages/frontend/src/hooks/useBattleState.ts`
+  - `packages/frontend/src/hooks/useGameState.ts`
+  - `packages/frontend/src/App.tsx`
+- **Findings**:
+  - `BattleGhostState.currentHp`はバトル中のみ有効、パーティとは独立
+  - `useGameState.updatePartyGhost()`が実装済みだが未使用
+  - `resetBattle()`呼び出し前にHP同期が必要
+- **Implications**: App.tsxのバトル終了ハンドラーに同期ロジックを追加
+
+### アイテム選択UI接続
+- **Context**: 「アイテム」コマンドが機能しない問題の調査
+- **Sources Consulted**:
+  - `packages/frontend/src/components/battle/ItemSelectPanel.tsx`
+  - `packages/frontend/src/components/battle/CaptureItemPanel.tsx`
+  - `packages/frontend/src/App.tsx` (handleBattleCommand)
+- **Findings**:
+  - `ItemSelectPanel`は完全に実装済み（カテゴリ表示、数量表示、選択不可制御）
+  - `BattlePhase`に`"item_select"`が既に定義済み
+  - `handleBattleCommand("item")`がstub実装（`break`のみ）
+  - `executePlayerAction`には`itemBonus`パラメータが存在
+- **Implications**:
+  - `setPhase("item_select")`の呼び出し追加
+  - 回復アイテム使用ロジックの新規実装が必要
+  - 捕獲アイテムボーナスの計算ロジック接続が必要
+
+### セーブ機能の現状
+- **Context**: 手動セーブが機能しない問題の調査
+- **Sources Consulted**:
+  - `packages/frontend/src/api/useSaveData.ts`
+  - `packages/frontend/src/App.tsx` (handleMenuSelect)
+- **Findings**:
+  - `useSaveDataMutation()`が完全に実装済み
+  - `useAutoSave()`フックで30秒間隔の自動セーブが動作中
+  - `handleMenuSelect("save")`がstub実装（`console.log`のみ）
+  - 成功/失敗のフィードバック機構が未実装
+- **Implications**: handleMenuSelectにmutation呼び出しを追加、フィードバックUIを追加
+
+### 追加Design Decisions
+
+#### Decision: バトル終了時のHP同期タイミング
+- **Context**: バトル終了後、いつパーティHPを更新するか
+- **Alternatives Considered**:
+  1. バトル結果表示前に同期
+  2. バトル結果表示後、マップ遷移前に同期
+- **Selected Approach**: バトル結果表示後、`resetBattle()`呼び出し直前に同期
+- **Rationale**: 結果表示中はバトル状態を保持する必要がある
+- **Trade-offs**: 同期タイミングが遅延するが、UXへの影響なし
+
+#### Decision: アイテム選択フローの設計
+- **Context**: 回復アイテムと捕獲アイテムで処理が異なる
+- **Alternatives Considered**:
+  1. 単一のアイテム選択画面で両方処理
+  2. カテゴリ選択→アイテム選択の2段階
+- **Selected Approach**: 単一のアイテム選択画面、カテゴリはUIで視覚的に区別
+- **Rationale**: 既存の`ItemSelectPanel`がカテゴリ表示をサポート済み
+
+#### Decision: 手動セーブのフィードバック方式
+- **Context**: セーブ成功/失敗をどのようにユーザーに伝えるか
+- **Alternatives Considered**:
+  1. トースト通知
+  2. モーダルダイアログ
+  3. インライン表示（メニュー画面内）
+- **Selected Approach**: インライン表示（メニュー画面内）
+- **Rationale**: 既存の`SaveStatus`コンポーネントパターンとの一貫性
+
+### 追加Risks
+- **HP同期漏れ**: 全バトル終了パスで同期処理を統一して対応
+- **アイテム使用後のターン処理複雑化**: 回復は即時適用、捕獲は既存フローを活用
+- **セーブ失敗時のデータ損失**: 自動セーブとの併用、ローカルキャッシュ活用
+
 ## References
 - [React State Management in 2024](https://dev.to/nguyenhongphat0/react-state-management-in-2024-5e7l)
 - [Elmcrest Game GitHub](https://github.com/coldi/elmcrest-game) — ターン制RPGの参考実装

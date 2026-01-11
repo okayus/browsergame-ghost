@@ -1,6 +1,7 @@
 import { useClerk } from "@clerk/clerk-react";
 import {
   ALL_GHOST_SPECIES,
+  ALL_ITEMS,
   ALL_MOVES,
   type GhostSpecies,
   type GhostType,
@@ -17,6 +18,7 @@ import { LoadingScreen } from "./components/auth/LoadingScreen";
 import { WelcomeScreen } from "./components/auth/WelcomeScreen";
 import { BattleScreen } from "./components/battle/BattleScreen";
 import { type BattleCommand, CommandPanel } from "./components/battle/CommandPanel";
+import { type DisplayItem, ItemSelectPanel } from "./components/battle/ItemSelectPanel";
 import { type DisplayMove, SkillSelectPanel } from "./components/battle/SkillSelectPanel";
 import { ErrorBoundary } from "./components/error/ErrorBoundary";
 import { GameContainer } from "./components/game/GameContainer";
@@ -25,6 +27,8 @@ import { MapScreen } from "./components/map/MapScreen";
 import { type MenuItem, MenuScreen } from "./components/menu/MenuScreen";
 import { PartyScreen } from "./components/party/PartyScreen";
 import { useAuthState } from "./hooks/useAuthState";
+import { useBattleEndSync } from "./hooks/useBattleEndSync";
+import { getCaptureBonus } from "./hooks/useBattleItem";
 import { useBattleState } from "./hooks/useBattleState";
 import { useGameState } from "./hooks/useGameState";
 import type { Direction, EncounterResult } from "./hooks/useMapState";
@@ -38,9 +42,17 @@ import { useMapState } from "./hooks/useMapState";
 function AuthenticatedContent() {
   const { data: saveData } = useSaveDataQuery();
   const initializeMutation = useInitializePlayerMutation();
-  const { saving, hasPendingCache, lastSavedAt } = useAutoSave();
+  const { saving, hasPendingCache, lastSavedAt, updatePendingSaveData } = useAutoSave();
 
-  const { state: gameState, setScreen, setParty, setInventory, setLoaded } = useGameState();
+  const gameStateHook = useGameState();
+  const {
+    state: gameState,
+    setScreen,
+    setParty,
+    setInventory,
+    setLoaded,
+    useItem: consumeItem,
+  } = gameStateHook;
   const { state: mapState, setMap, setPosition, move } = useMapState();
   const {
     state: battleState,
@@ -49,6 +61,9 @@ function AuthenticatedContent() {
     executePlayerAction,
     reset: resetBattle,
   } = useBattleState();
+
+  // バトル終了時のHP同期
+  const { syncPartyHp } = useBattleEndSync(gameStateHook, updatePendingSaveData);
 
   // バトル中のゴーストタイプを保持
   const [playerGhostType, setPlayerGhostType] = useState<GhostType | null>(null);
@@ -152,7 +167,8 @@ function AuthenticatedContent() {
           setPhase("move_select");
           break;
         case "item":
-          // アイテム選択（将来実装）
+          // アイテム選択画面に遷移
+          setPhase("item_select");
           break;
         case "capture":
           // 捕獲処理
@@ -162,7 +178,12 @@ function AuthenticatedContent() {
               playerGhostType,
               enemyGhostType,
             );
-            if (result.battleEnded) {
+            if (result.battleEnded && battleState.endReason) {
+              // HP同期（捕獲成功時）
+              const activeGhostId = gameState.party?.ghosts[0]?.id;
+              if (activeGhostId) {
+                syncPartyHp(battleState, battleState.endReason, activeGhostId);
+              }
               // バトル終了処理
               setTimeout(() => {
                 resetBattle();
@@ -177,7 +198,12 @@ function AuthenticatedContent() {
           // 逃走処理
           if (playerGhostType && enemyGhostType) {
             const result = executePlayerAction({ type: "escape" }, playerGhostType, enemyGhostType);
-            if (result.battleEnded) {
+            if (result.battleEnded && battleState.endReason) {
+              // HP同期（逃走成功時）
+              const activeGhostId = gameState.party?.ghosts[0]?.id;
+              if (activeGhostId) {
+                syncPartyHp(battleState, battleState.endReason, activeGhostId);
+              }
               // 逃走成功
               setTimeout(() => {
                 resetBattle();
@@ -190,7 +216,17 @@ function AuthenticatedContent() {
           break;
       }
     },
-    [playerGhostType, enemyGhostType, setPhase, executePlayerAction, resetBattle, setScreen],
+    [
+      playerGhostType,
+      enemyGhostType,
+      battleState,
+      gameState.party?.ghosts,
+      setPhase,
+      executePlayerAction,
+      syncPartyHp,
+      resetBattle,
+      setScreen,
+    ],
   );
 
   // 技選択ハンドラ
@@ -211,7 +247,12 @@ function AuthenticatedContent() {
         enemyGhostType,
       );
 
-      if (result.battleEnded) {
+      if (result.battleEnded && battleState.endReason) {
+        // HP同期（勝利/敗北時）
+        const activeGhostId = gameState.party?.ghosts[0]?.id;
+        if (activeGhostId) {
+          syncPartyHp(battleState, battleState.endReason, activeGhostId);
+        }
         // バトル終了処理
         setTimeout(() => {
           resetBattle();
@@ -225,10 +266,12 @@ function AuthenticatedContent() {
       }
     },
     [
-      battleState.playerGhost,
+      battleState,
+      gameState.party?.ghosts,
       playerGhostType,
       enemyGhostType,
       executePlayerAction,
+      syncPartyHp,
       resetBattle,
       setScreen,
       setPhase,
@@ -256,6 +299,147 @@ function AuthenticatedContent() {
       })
       .filter((m): m is DisplayMove => m !== null);
   }, [battleState.playerGhost]);
+
+  // バトル中のアイテム一覧を取得（回復系と捕獲系のみ）
+  const getBattleItems = useCallback((): DisplayItem[] => {
+    const inventoryItems = gameState.inventory.items;
+
+    return inventoryItems
+      .map((entry) => {
+        const itemData = ALL_ITEMS.find((item) => item.id === entry.itemId);
+        if (!itemData) {
+          return null;
+        }
+        // バトル中は回復系と捕獲系のみ表示
+        if (itemData.category !== "healing" && itemData.category !== "capture") {
+          return null;
+        }
+        return { item: itemData, entry };
+      })
+      .filter((i): i is DisplayItem => i !== null);
+  }, [gameState.inventory.items]);
+
+  // アイテム選択ハンドラ
+  const handleItemSelect = useCallback(
+    (itemId: string) => {
+      // アイテムマスタから情報取得
+      const itemData = ALL_ITEMS.find((item) => item.id === itemId);
+      if (!itemData) {
+        console.error("Item not found:", itemId);
+        setPhase("command_select");
+        return;
+      }
+
+      // 回復アイテムの場合
+      if (itemData.category === "healing") {
+        // アイテムを消費
+        const consumed = consumeItem(itemId);
+        if (!consumed) {
+          console.error("Failed to consume item:", itemId);
+          setPhase("command_select");
+          return;
+        }
+
+        // インベントリ更新をセーブキューに追加
+        updatePendingSaveData({ inventory: gameState.inventory });
+
+        // バトルアクション実行（敵ターン込み）
+        if (playerGhostType && enemyGhostType) {
+          const result = executePlayerAction(
+            { type: "item", itemId, healAmount: itemData.effectValue },
+            playerGhostType,
+            enemyGhostType,
+          );
+
+          if (result.battleEnded && battleState.endReason) {
+            // HP同期（敗北時）
+            const activeGhostId = gameState.party?.ghosts[0]?.id;
+            if (activeGhostId) {
+              syncPartyHp(battleState, battleState.endReason, activeGhostId);
+            }
+            // バトル終了処理
+            setTimeout(() => {
+              resetBattle();
+              setScreen("map");
+              setPlayerGhostType(null);
+              setEnemyGhostType(null);
+            }, 2000);
+          } else {
+            // バトル継続 - コマンド選択に戻る
+            setPhase("command_select");
+          }
+        }
+        return;
+      }
+
+      // 捕獲アイテムの場合
+      if (itemData.category === "capture") {
+        // アイテムを消費
+        const consumed = consumeItem(itemId);
+        if (!consumed) {
+          console.error("Failed to consume capture item:", itemId);
+          setPhase("command_select");
+          return;
+        }
+
+        // 捕獲ボーナスを計算
+        const itemBonus = getCaptureBonus(itemData);
+
+        // インベントリ更新をセーブキューに追加
+        updatePendingSaveData({ inventory: gameState.inventory });
+
+        // 捕獲アクション実行
+        if (playerGhostType && enemyGhostType) {
+          const result = executePlayerAction(
+            { type: "capture", itemBonus },
+            playerGhostType,
+            enemyGhostType,
+          );
+
+          if (result.battleEnded && battleState.endReason) {
+            // HP同期（捕獲成功/失敗どちらでもバトル終了時）
+            const activeGhostId = gameState.party?.ghosts[0]?.id;
+            if (activeGhostId) {
+              syncPartyHp(battleState, battleState.endReason, activeGhostId);
+            }
+            // バトル終了処理
+            setTimeout(() => {
+              resetBattle();
+              setScreen("map");
+              setPlayerGhostType(null);
+              setEnemyGhostType(null);
+            }, 2000);
+          } else {
+            // 捕獲失敗でバトル継続 - コマンド選択に戻る
+            setPhase("command_select");
+          }
+        }
+        return;
+      }
+
+      // その他のアイテム
+      setPhase("command_select");
+    },
+    [
+      playerGhostType,
+      enemyGhostType,
+      battleState,
+      gameState.inventory,
+      gameState.party?.ghosts,
+      consumeItem,
+      executePlayerAction,
+      syncPartyHp,
+      updatePendingSaveData,
+      resetBattle,
+      setScreen,
+      setPhase,
+    ],
+  );
+
+  // アイテム選択から戻る
+  const handleItemSelectBack = useCallback(() => {
+    setPhase("command_select");
+  }, [setPhase]);
 
   // メニューを開く
   const handleOpenMenu = useCallback(() => {
@@ -407,6 +591,13 @@ function AuthenticatedContent() {
                   moves={getPlayerMoves()}
                   onSelectMove={handleMoveSelect}
                   onBack={handleMoveSelectBack}
+                  onKeyInput={keyInput}
+                />
+              ) : battleState.phase === "item_select" ? (
+                <ItemSelectPanel
+                  items={getBattleItems()}
+                  onSelectItem={handleItemSelect}
+                  onBack={handleItemSelectBack}
                   onKeyInput={keyInput}
                 />
               ) : undefined

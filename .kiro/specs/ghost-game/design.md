@@ -210,6 +210,9 @@ sequenceDiagram
 | 14.1-14.6 | パーティ画面表示 | PartyScreen, GhostSummaryCard, GhostDetailPanel | PartyScreenState, GhostDisplayInfo | パーティ画面フロー |
 | 12.1-12.6 | 認証状態・画面遷移 | App, LoadingScreen, useAuthState | AuthState, AppScreen | 認証フロー |
 | 13.1-13.5 | セーブデータ永続化 | useSaveData, SaveAPI | SaveData, SaveRequest | - |
+| 15.1-15.5 | バトル後HP同期 | useBattleEndSync | BattleEndSyncResult | バトル終了フロー |
+| 16.1-16.9 | バトル中アイテム使用 | useBattleItem, ItemSelectPanel | BattleItemAction, ItemUseResult | アイテム使用フロー |
+| 17.1-17.5 | 手動セーブ | MenuScreen (拡張), SaveFeedback | ManualSaveState | - |
 
 ## Components and Interfaces
 
@@ -222,12 +225,17 @@ sequenceDiagram
 | MapGrid | UI/Map | グリッドタイル描画 | 1.4, 1.5 | TileData (P0) | - |
 | BattleScreen | UI/Battle | バトル画面全体 | 4.1, 4.2, 10.2-10.3 | useBattleState (P0) | State |
 | CommandPanel | UI/Battle | コマンド選択UI | 4.2, 4.3 | BattleCommand (P0) | - |
+| ItemSelectPanel | UI/Battle | アイテム選択UI | 16.1, 16.2, 16.8, 16.9 | DisplayItem (P0) | - |
 | PartyScreen | UI/Party | パーティ一覧・詳細表示画面 | 6.1-6.3, 14.1-14.6 | useGameState (P0), GhostSummaryCard (P1), GhostDetailPanel (P1) | State |
 | GhostSummaryCard | UI/Party | ゴースト簡易情報表示 | 14.2, 14.3 | - | - |
 | GhostDetailPanel | UI/Party | ゴースト詳細情報表示 | 14.4 | - | - |
+| MenuScreen | UI/Menu | メニュー画面（セーブ機能拡張） | 17.1-17.5 | useSaveDataMutation (P0) | State |
+| SaveFeedback | UI/Menu | セーブ結果フィードバック表示 | 17.2, 17.3, 17.4 | - | - |
 | useGameState | Hook | ゲーム全体状態管理 | 10.1 | - | State |
 | useMapState | Hook | マップ状態管理 | 1.1-1.3 | mapLogic (P0) | State |
 | useBattleState | Hook | バトル状態管理 | 4.1-4.8 | battleLogic (P0) | State |
+| useBattleEndSync | Hook | バトル終了時HP同期 | 15.1-15.5 | useGameState (P0), useSaveData (P1) | Service |
+| useBattleItem | Hook | バトル中アイテム使用ロジック | 16.3-16.7 | useBattleState (P0), useInventoryState (P0) | Service |
 | battleLogic | Logic | ダメージ計算・ターン処理 | 3.3-3.6, 4.4-4.8 | typeChart (P0) | Service |
 | captureLogic | Logic | 捕獲成功率計算 | 5.2-5.5 | - | Service |
 | levelUpLogic | Logic | 経験値・レベルアップ処理 | 8.1-8.6 | - | Service |
@@ -1028,3 +1036,267 @@ graph LR
 - マップタイルは可視範囲のみ描画
 - React.memoでコンポーネント再描画を最適化
 - Tailwind CSS の JIT コンパイルで未使用スタイル除去
+
+---
+
+## 追加コンポーネント設計（要件15-17）
+
+### System Flows（追加）
+
+#### バトル終了フロー（HP同期）
+
+```mermaid
+sequenceDiagram
+    participant BS as BattleScreen
+    participant BSync as useBattleEndSync
+    participant GS as useGameState
+    participant Save as useAutoSave
+
+    BS->>BS: バトル終了（勝利/逃走/捕獲）
+    BS->>BS: 結果パネル表示（2秒）
+    BS->>BSync: syncPartyHp(battleState)
+    BSync->>GS: updatePartyGhost(id, {currentHp})
+    GS-->>BSync: 更新完了
+    BSync->>Save: updatePendingSaveData({party})
+    Save-->>BSync: キュー追加
+    BSync-->>BS: 同期完了
+    BS->>BS: resetBattle()
+    BS->>BS: setScreen("map")
+```
+
+#### アイテム使用フロー
+
+```mermaid
+sequenceDiagram
+    participant P as Player
+    participant UI as BattleScreen
+    participant BI as useBattleItem
+    participant BS as useBattleState
+    participant Inv as useInventoryState
+
+    P->>UI: 「アイテム」コマンド選択
+    UI->>BS: setPhase("item_select")
+    BS-->>UI: ItemSelectPanel表示
+
+    P->>UI: アイテム選択
+    UI->>BI: useItem(itemId)
+    BI->>Inv: useItem(itemId)
+    Inv-->>BI: 消費成功
+
+    alt 回復アイテム
+        BI->>BS: healPlayerGhost(effectValue)
+        BS-->>BI: HP回復
+        BI-->>UI: ターン消費
+    else 捕獲アイテム
+        BI->>BS: executePlayerAction({type: "capture", itemBonus})
+        BS-->>BI: 捕獲結果
+    end
+
+    UI->>BS: setPhase("command_select")
+```
+
+### Hook Layer（追加）
+
+#### useBattleEndSync
+
+| Field | Detail |
+|-------|--------|
+| Intent | バトル終了時にパーティHPを同期し、セーブデータを更新 |
+| Requirements | 15.1, 15.2, 15.3, 15.4, 15.5 |
+
+**Responsibilities & Constraints**
+- バトル終了（勝利/逃走/捕獲/敗北）時にパーティのcurrentHpを更新
+- 敗北時はパーティ全員のHPを最大値に回復
+- セーブデータの更新をキューに追加
+
+**Dependencies**
+- Inbound: App.tsx — バトル終了ハンドラー (P0)
+- Outbound: useGameState.updatePartyGhost — HP更新 (P0)
+- Outbound: useAutoSave.updatePendingSaveData — セーブキュー (P1)
+
+**Contracts**: Service [x]
+
+##### Service Interface
+```typescript
+interface UseBattleEndSyncReturn {
+  /**
+   * バトル終了時のHP同期を実行
+   * @param battleState 現在のバトル状態
+   * @param endReason バトル終了理由
+   */
+  syncPartyHp: (
+    battleState: BattleState,
+    endReason: BattleEndReason
+  ) => void;
+}
+
+type BattleEndReason = "player_win" | "player_lose" | "escape" | "capture";
+
+// 使用例
+const { syncPartyHp } = useBattleEndSync();
+
+// バトル終了時
+if (result.battleEnded) {
+  syncPartyHp(battleState, battleState.endReason);
+  setTimeout(() => {
+    resetBattle();
+    setScreen("map");
+  }, 2000);
+}
+```
+
+**Implementation Notes**
+- `endReason === "player_lose"`の場合は全回復処理を実行
+- `updatePendingSaveData`は次回の自動セーブで反映される
+
+---
+
+#### useBattleItem
+
+| Field | Detail |
+|-------|--------|
+| Intent | バトル中のアイテム使用ロジックを管理 |
+| Requirements | 16.3, 16.4, 16.5, 16.6, 16.7 |
+
+**Responsibilities & Constraints**
+- 回復アイテム使用時のHP回復処理
+- 捕獲アイテム使用時のボーナス計算と捕獲処理呼び出し
+- インベントリからのアイテム消費
+
+**Dependencies**
+- Inbound: App.tsx — アイテム選択ハンドラー (P0)
+- Outbound: useBattleState — HP回復/捕獲実行 (P0)
+- Outbound: useInventoryState.useItem — アイテム消費 (P0)
+- Outbound: useAutoSave.updatePendingSaveData — インベントリ保存 (P1)
+
+**Contracts**: Service [x]
+
+##### Service Interface
+```typescript
+interface UseBattleItemReturn {
+  /**
+   * バトル中にアイテムを使用
+   * @param itemId 使用するアイテムID
+   * @param item アイテムマスタデータ
+   * @returns 使用結果
+   */
+  useItemInBattle: (itemId: string, item: Item) => ItemUseResult;
+
+  /**
+   * 使用可能なアイテム一覧を取得
+   * @param inventory 現在のインベントリ
+   * @param itemMaster アイテムマスタデータ
+   * @returns DisplayItem配列
+   */
+  getUsableItems: (
+    inventory: Inventory,
+    itemMaster: Item[]
+  ) => DisplayItem[];
+}
+
+interface ItemUseResult {
+  success: boolean;
+  /** 回復アイテムの場合の回復量 */
+  healedAmount?: number;
+  /** 捕獲アイテムの場合の捕獲結果 */
+  captureResult?: CaptureResult;
+  /** ターンを消費するか */
+  consumesTurn: boolean;
+  /** エラーメッセージ */
+  error?: string;
+}
+
+// アイテムカテゴリによる処理分岐
+type ItemCategory = "healing" | "capture" | "other";
+```
+
+**Implementation Notes**
+- 回復アイテム: `battleState.playerGhost.currentHp`を直接更新
+- 捕獲アイテム: 既存の`executePlayerAction({type: "capture", itemBonus})`を呼び出し
+- アイテム消費後は`updatePendingSaveData({inventory})`でセーブキューに追加
+
+---
+
+### UI Layer（追加）
+
+#### SaveFeedback
+
+| Field | Detail |
+|-------|--------|
+| Intent | セーブ処理の状態をユーザーにフィードバック |
+| Requirements | 17.2, 17.3, 17.4 |
+
+**Responsibilities & Constraints**
+- セーブ中のローディング表示
+- セーブ成功メッセージの表示
+- セーブ失敗時のエラーメッセージとリトライオプション
+
+**Dependencies**
+- Inbound: MenuScreen — 条件付きレンダリング (P0)
+
+**Contracts**: State [x]
+
+##### Props Interface
+```typescript
+interface SaveFeedbackProps {
+  /** セーブ状態 */
+  status: ManualSaveStatus;
+  /** リトライコールバック */
+  onRetry?: () => void;
+}
+
+type ManualSaveStatus =
+  | { type: "idle" }
+  | { type: "saving" }
+  | { type: "success" }
+  | { type: "error"; message: string };
+```
+
+**Implementation Notes**
+- プレゼンテーショナルコンポーネント
+- 成功時は2秒後に自動的にidleに戻る
+- エラー時はリトライボタンを表示
+
+---
+
+#### MenuScreen（拡張）
+
+| Field | Detail |
+|-------|--------|
+| Intent | メニュー画面に手動セーブ機能を追加 |
+| Requirements | 17.1, 17.5 |
+
+**拡張内容**
+- `handleMenuSelect("save")`のstub実装を完成
+- `useSaveDataMutation`を使用した明示的セーブ
+- `SaveFeedback`コンポーネントによる状態表示
+
+##### 拡張State Management
+```typescript
+interface MenuScreenState {
+  /** 既存のメニュー状態 */
+  selectedIndex: number;
+  /** 手動セーブ状態（追加） */
+  saveStatus: ManualSaveStatus;
+}
+
+// handleMenuSelect拡張
+case "save":
+  setSaveStatus({ type: "saving" });
+  saveMutation.mutateAsync({
+    position: gameState.position,
+    party: gameState.party,
+    inventory: gameState.inventory
+  }).then(() => {
+    setSaveStatus({ type: "success" });
+    setTimeout(() => setSaveStatus({ type: "idle" }), 2000);
+  }).catch((error) => {
+    setSaveStatus({ type: "error", message: error.message });
+  });
+  break;
+```
+
+**Implementation Notes**
+- 既存のMenuScreenコンポーネントを拡張
+- セーブ中はメニュー操作を無効化
+- 自動セーブとの競合を避けるため、mutation完了を待つ
