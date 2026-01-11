@@ -23,7 +23,7 @@ export type BattleCommand = "fight" | "item" | "capture" | "escape";
  */
 export type BattleAction =
   | { type: "attack"; moveIndex: number }
-  | { type: "item"; itemId: string }
+  | { type: "item"; itemId: string; healAmount: number }
   | { type: "capture"; itemBonus: number }
   | { type: "escape" };
 
@@ -263,6 +263,53 @@ export function useBattleState(): UseBattleStateReturn {
               battleEnded = true;
               endReason = "player_lose";
             }
+          }
+        }
+      }
+
+      // アイテム使用アクション（回復）
+      else if (action.type === "item") {
+        // HP回復処理
+        const maxHp = playerGhostState.ghost.maxHp;
+        const currentHp = playerGhostState.currentHp;
+        const healAmount = Math.min(action.healAmount, maxHp - currentHp);
+        newPlayerHp = currentHp + healAmount;
+
+        if (healAmount > 0) {
+          playerActionMessage = `HPが${healAmount}回復した！`;
+        } else {
+          playerActionMessage = "HPは満タンだ！";
+        }
+
+        // 敵のターン
+        const enemyMoveIndex = selectEnemyMove(enemyGhostState.ghost.moves);
+        const enemyMove = enemyGhostState.ghost.moves[enemyMoveIndex];
+
+        if (enemyMove && enemyMove.currentPP > 0) {
+          const damageResult = calculateDamage(
+            {
+              movePower: 40,
+              moveType: enemyType,
+              attackerAttack: enemyGhostState.ghost.stats.attack,
+              attackerType: enemyType,
+              attackerLevel: enemyGhostState.ghost.level,
+              defenderDefense: playerGhostState.ghost.stats.defense,
+              defenderType: playerType,
+            },
+            randomValues?.critical,
+          );
+
+          playerDamage = damageResult.damage;
+          newPlayerHp = Math.max(0, newPlayerHp - damageResult.damage);
+          enemyActionMessage = `敵の${enemyGhostState.ghost.speciesId}の攻撃！${damageResult.damage}ダメージ！`;
+
+          if (damageResult.isCritical) {
+            enemyActionMessage += " 急所に当たった！";
+          }
+
+          if (newPlayerHp === 0) {
+            battleEnded = true;
+            endReason = "player_lose";
           }
         }
       }

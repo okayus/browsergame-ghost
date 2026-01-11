@@ -752,4 +752,165 @@ describe("useBattleState - バトル進行詳細テスト", () => {
       expect(turnResult!.endReason).toBe("capture");
     });
   });
+
+  describe("executePlayerAction - item（回復アイテム）", () => {
+    it("回復アイテム使用でプレイヤーHPが回復する", () => {
+      const { result } = renderHook(() => useBattleState());
+      // 高防御で敵からのダメージを最小化
+      const damagedPlayer: OwnedGhost = {
+        ...createMockPlayerGhost(),
+        currentHp: 15, // ダメージを受けている状態
+        maxHp: 30,
+        stats: { hp: 30, attack: 20, defense: 100, speed: 25 }, // 高防御
+      };
+      // 低攻撃の敵
+      const weakEnemy: OwnedGhost = {
+        ...createMockEnemyGhost(),
+        stats: { hp: 25, attack: 1, defense: 12, speed: 18 }, // 低攻撃
+      };
+
+      act(() => {
+        result.current.startBattle(damagedPlayer, weakEnemy, "ghost");
+      });
+
+      expect(result.current.state.playerGhost?.currentHp).toBe(15);
+
+      let turnResult: ReturnType<typeof result.current.executePlayerAction>;
+      act(() => {
+        turnResult = result.current.executePlayerAction(
+          { type: "item", itemId: "potion", healAmount: 30 },
+          "fire",
+          "ghost",
+          { critical: 0.5 },
+        );
+      });
+
+      // HPが回復している（敵の攻撃後でも元より増えている）
+      // 15回復 → 30、敵の攻撃で多少減る
+      expect(result.current.state.playerGhost?.currentHp).toBeGreaterThan(15);
+      expect(turnResult!.playerActionMessage).toContain("回復");
+    });
+
+    it("回復アイテム使用後に敵のターンが実行される", () => {
+      const { result } = renderHook(() => useBattleState());
+      const damagedPlayer: OwnedGhost = {
+        ...createMockPlayerGhost(),
+        currentHp: 20,
+        maxHp: 30,
+      };
+
+      act(() => {
+        result.current.startBattle(damagedPlayer, createMockEnemyGhost(), "ghost");
+      });
+
+      let turnResult: ReturnType<typeof result.current.executePlayerAction>;
+      act(() => {
+        turnResult = result.current.executePlayerAction(
+          { type: "item", itemId: "potion", healAmount: 10 },
+          "fire",
+          "ghost",
+          { critical: 0.5 },
+        );
+      });
+
+      // 敵のターンが実行されメッセージが追加される
+      expect(turnResult!.enemyActionMessage).not.toBeNull();
+      expect(turnResult!.damageInfo.playerDamage).not.toBeNull();
+    });
+
+    it("回復アイテム使用でターンが進む", () => {
+      const { result } = renderHook(() => useBattleState());
+
+      act(() => {
+        result.current.startBattle(createMockPlayerGhost(), createMockEnemyGhost(), "ghost");
+      });
+
+      expect(result.current.state.turnCount).toBe(1);
+
+      act(() => {
+        result.current.executePlayerAction(
+          { type: "item", itemId: "potion", healAmount: 30 },
+          "fire",
+          "ghost",
+        );
+      });
+
+      expect(result.current.state.turnCount).toBe(2);
+    });
+
+    it("回復量は最大HPを超えない", () => {
+      const { result } = renderHook(() => useBattleState());
+      const almostFullPlayer: OwnedGhost = {
+        ...createMockPlayerGhost(),
+        currentHp: 29, // 最大HP30に対して1だけ減っている
+        maxHp: 30,
+      };
+
+      act(() => {
+        result.current.startBattle(almostFullPlayer, createMockEnemyGhost(), "ghost");
+      });
+
+      act(() => {
+        result.current.executePlayerAction(
+          { type: "item", itemId: "potion", healAmount: 30 }, // 30回復しようとする
+          "fire",
+          "ghost",
+        );
+      });
+
+      // 最大HPの30を超えない
+      expect(result.current.state.playerGhost?.currentHp).toBeLessThanOrEqual(30);
+    });
+
+    it("敵の攻撃でプレイヤーが倒れた場合、バトルが終了する", () => {
+      const { result } = renderHook(() => useBattleState());
+      const weakPlayer: OwnedGhost = {
+        ...createMockPlayerGhost(),
+        currentHp: 1,
+        maxHp: 30,
+        stats: { hp: 30, attack: 20, defense: 1, speed: 5 }, // 低防御、低速度
+      };
+      const strongEnemy: OwnedGhost = {
+        ...createMockEnemyGhost(),
+        stats: { hp: 25, attack: 100, defense: 12, speed: 100 }, // 高攻撃
+      };
+
+      act(() => {
+        result.current.startBattle(weakPlayer, strongEnemy, "ghost");
+      });
+
+      let turnResult: ReturnType<typeof result.current.executePlayerAction>;
+      act(() => {
+        turnResult = result.current.executePlayerAction(
+          { type: "item", itemId: "potion", healAmount: 10 }, // 回復してもまだ11
+          "fire",
+          "ghost",
+          { critical: 0.5 },
+        );
+      });
+
+      // 敵の攻撃で倒れてバトル終了
+      expect(turnResult!.battleEnded).toBe(true);
+      expect(turnResult!.endReason).toBe("player_lose");
+    });
+
+    it("バトル終了していない場合、フェーズがcommand_selectに戻る", () => {
+      const { result } = renderHook(() => useBattleState());
+
+      act(() => {
+        result.current.startBattle(createMockPlayerGhost(), createMockEnemyGhost(), "ghost");
+      });
+
+      act(() => {
+        result.current.executePlayerAction(
+          { type: "item", itemId: "potion", healAmount: 30 },
+          "fire",
+          "ghost",
+          { critical: 0.5 },
+        );
+      });
+
+      expect(result.current.state.phase).toBe("command_select");
+    });
+  });
 });
