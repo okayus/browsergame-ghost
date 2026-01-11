@@ -127,6 +127,16 @@ export function ItemSelectPanel({
 
   return (
     <div className="flex h-full flex-col p-4" data-testid="item-select-panel">
+      {/* アイテムがない場合のメッセージ */}
+      {items.length === 0 && (
+        <div
+          className="mb-4 rounded-lg border-2 border-ghost-border bg-ghost-surface p-4 text-center"
+          data-testid="item-empty-message"
+        >
+          <p className="text-ghost-text-muted">使えるアイテムがありません</p>
+        </div>
+      )}
+
       {/* アイテム一覧 */}
       <div className="flex flex-1 flex-col gap-2">
         {items.map((displayItem, index) => {

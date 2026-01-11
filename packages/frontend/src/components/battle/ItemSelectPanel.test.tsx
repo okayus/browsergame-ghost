@@ -315,5 +315,25 @@ describe("ItemSelectPanel", () => {
       expect(screen.getByTestId("item-back")).toBeInTheDocument();
       expect(screen.getByTestId("item-back")).toHaveAttribute("data-selected", "true");
     });
+
+    it("should show empty message when no items", () => {
+      render(<ItemSelectPanel items={[]} onSelectItem={vi.fn()} onBack={vi.fn()} />);
+
+      expect(screen.getByTestId("item-empty-message")).toBeInTheDocument();
+      expect(screen.getByText("使えるアイテムがありません")).toBeInTheDocument();
+    });
+
+    it("should not show empty message when items exist", () => {
+      render(<ItemSelectPanel items={mockItems} onSelectItem={vi.fn()} onBack={vi.fn()} />);
+
+      expect(screen.queryByTestId("item-empty-message")).not.toBeInTheDocument();
+    });
+
+    it("should call onBack with Escape key when no items", () => {
+      const onBack = vi.fn();
+      render(<ItemSelectPanel items={[]} onSelectItem={vi.fn()} onBack={onBack} onKeyInput="Escape" />);
+
+      expect(onBack).toHaveBeenCalled();
+    });
   });
 });
