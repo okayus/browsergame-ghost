@@ -475,7 +475,7 @@ feat/task-{メジャータスク番号}.{サブタスク番号}-{簡潔な説明
   - 使用結果（回復量、捕獲成功/失敗）を返す
   - _Requirements: 16.3, 16.4, 16.6, 16.7_
 
-- [ ] 21.2 アイテムコマンドをバトル画面に接続する
+- [x] 21.2 アイテムコマンドをバトル画面に接続する
   - handleBattleCommandの「item」ケースにアイテム選択画面遷移を実装
   - setPhase("item_select")でItemSelectPanelを表示
   - 既存のItemSelectPanelコンポーネントとの連携

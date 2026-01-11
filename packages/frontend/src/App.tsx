@@ -1,6 +1,7 @@
 import { useClerk } from "@clerk/clerk-react";
 import {
   ALL_GHOST_SPECIES,
+  ALL_ITEMS,
   ALL_MOVES,
   type GhostSpecies,
   type GhostType,
@@ -17,6 +18,7 @@ import { LoadingScreen } from "./components/auth/LoadingScreen";
 import { WelcomeScreen } from "./components/auth/WelcomeScreen";
 import { BattleScreen } from "./components/battle/BattleScreen";
 import { type BattleCommand, CommandPanel } from "./components/battle/CommandPanel";
+import { type DisplayItem, ItemSelectPanel } from "./components/battle/ItemSelectPanel";
 import { type DisplayMove, SkillSelectPanel } from "./components/battle/SkillSelectPanel";
 import { ErrorBoundary } from "./components/error/ErrorBoundary";
 import { GameContainer } from "./components/game/GameContainer";
@@ -157,7 +159,8 @@ function AuthenticatedContent() {
           setPhase("move_select");
           break;
         case "item":
-          // アイテム選択（将来実装）
+          // アイテム選択画面に遷移
+          setPhase("item_select");
           break;
         case "capture":
           // 捕獲処理
@@ -288,6 +291,40 @@ function AuthenticatedContent() {
       })
       .filter((m): m is DisplayMove => m !== null);
   }, [battleState.playerGhost]);
+
+  // バトル中のアイテム一覧を取得（回復系と捕獲系のみ）
+  const getBattleItems = useCallback((): DisplayItem[] => {
+    const inventoryItems = gameState.inventory.items;
+
+    return inventoryItems
+      .map((entry) => {
+        const itemData = ALL_ITEMS.find((item) => item.id === entry.itemId);
+        if (!itemData) {
+          return null;
+        }
+        // バトル中は回復系と捕獲系のみ表示
+        if (itemData.category !== "healing" && itemData.category !== "capture") {
+          return null;
+        }
+        return { item: itemData, entry };
+      })
+      .filter((i): i is DisplayItem => i !== null);
+  }, [gameState.inventory.items]);
+
+  // アイテム選択ハンドラ（現時点では選択のみ、実際の使用はタスク21.3/21.4で実装）
+  const handleItemSelect = useCallback(
+    (itemId: string) => {
+      // アイテム選択後、コマンド選択に戻る（実際の使用処理は後のタスクで実装）
+      console.log("Item selected:", itemId);
+      setPhase("command_select");
+    },
+    [setPhase],
+  );
+
+  // アイテム選択から戻る
+  const handleItemSelectBack = useCallback(() => {
+    setPhase("command_select");
+  }, [setPhase]);
 
   // メニューを開く
   const handleOpenMenu = useCallback(() => {
@@ -439,6 +476,13 @@ function AuthenticatedContent() {
                   moves={getPlayerMoves()}
                   onSelectMove={handleMoveSelect}
                   onBack={handleMoveSelectBack}
+                  onKeyInput={keyInput}
+                />
+              ) : battleState.phase === "item_select" ? (
+                <ItemSelectPanel
+                  items={getBattleItems()}
+                  onSelectItem={handleItemSelect}
+                  onBack={handleItemSelectBack}
                   onKeyInput={keyInput}
                 />
               ) : undefined
