@@ -44,7 +44,14 @@ function AuthenticatedContent() {
   const { saving, hasPendingCache, lastSavedAt, updatePendingSaveData } = useAutoSave();
 
   const gameStateHook = useGameState();
-  const { state: gameState, setScreen, setParty, setInventory, setLoaded } = gameStateHook;
+  const {
+    state: gameState,
+    setScreen,
+    setParty,
+    setInventory,
+    setLoaded,
+    useItem: consumeItem,
+  } = gameStateHook;
   const { state: mapState, setMap, setPosition, move } = useMapState();
   const {
     state: battleState,
@@ -311,14 +318,83 @@ function AuthenticatedContent() {
       .filter((i): i is DisplayItem => i !== null);
   }, [gameState.inventory.items]);
 
-  // アイテム選択ハンドラ（現時点では選択のみ、実際の使用はタスク21.3/21.4で実装）
+  // アイテム選択ハンドラ
   const handleItemSelect = useCallback(
     (itemId: string) => {
-      // アイテム選択後、コマンド選択に戻る（実際の使用処理は後のタスクで実装）
-      console.log("Item selected:", itemId);
+      // アイテムマスタから情報取得
+      const itemData = ALL_ITEMS.find((item) => item.id === itemId);
+      if (!itemData) {
+        console.error("Item not found:", itemId);
+        setPhase("command_select");
+        return;
+      }
+
+      // 回復アイテムの場合
+      if (itemData.category === "healing") {
+        // アイテムを消費
+        const consumed = consumeItem(itemId);
+        if (!consumed) {
+          console.error("Failed to consume item:", itemId);
+          setPhase("command_select");
+          return;
+        }
+
+        // インベントリ更新をセーブキューに追加
+        updatePendingSaveData({ inventory: gameState.inventory });
+
+        // バトルアクション実行（敵ターン込み）
+        if (playerGhostType && enemyGhostType) {
+          const result = executePlayerAction(
+            { type: "item", itemId, healAmount: itemData.effectValue },
+            playerGhostType,
+            enemyGhostType,
+          );
+
+          if (result.battleEnded && battleState.endReason) {
+            // HP同期（敗北時）
+            const activeGhostId = gameState.party?.ghosts[0]?.id;
+            if (activeGhostId) {
+              syncPartyHp(battleState, battleState.endReason, activeGhostId);
+            }
+            // バトル終了処理
+            setTimeout(() => {
+              resetBattle();
+              setScreen("map");
+              setPlayerGhostType(null);
+              setEnemyGhostType(null);
+            }, 2000);
+          } else {
+            // バトル継続 - コマンド選択に戻る
+            setPhase("command_select");
+          }
+        }
+        return;
+      }
+
+      // 捕獲アイテムの場合（タスク21.4で実装）
+      if (itemData.category === "capture") {
+        console.log("Capture item selected:", itemId);
+        setPhase("command_select");
+        return;
+      }
+
+      // その他のアイテム
       setPhase("command_select");
     },
-    [setPhase],
+    [
+      playerGhostType,
+      enemyGhostType,
+      battleState,
+      gameState.inventory,
+      gameState.party?.ghosts,
+      consumeItem,
+      executePlayerAction,
+      syncPartyHp,
+      updatePendingSaveData,
+      resetBattle,
+      setScreen,
+      setPhase,
+    ],
   );
 
   // アイテム選択から戻る
