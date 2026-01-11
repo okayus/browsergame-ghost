@@ -188,11 +188,11 @@ function AuthenticatedContent() {
               playerGhostType,
               enemyGhostType,
             );
-            if (result.battleEnded && battleState.endReason) {
+            if (result.battleEnded && result.endReason) {
               // HP同期（捕獲成功時）
               const activeGhostId = gameState.party?.ghosts[0]?.id;
               if (activeGhostId) {
-                syncPartyHp(battleState, battleState.endReason, activeGhostId);
+                syncPartyHp(battleState, result.endReason, activeGhostId);
               }
               // バトル終了処理
               setTimeout(() => {
@@ -208,11 +208,11 @@ function AuthenticatedContent() {
           // 逃走処理
           if (playerGhostType && enemyGhostType) {
             const result = executePlayerAction({ type: "escape" }, playerGhostType, enemyGhostType);
-            if (result.battleEnded && battleState.endReason) {
+            if (result.battleEnded && result.endReason) {
               // HP同期（逃走成功時）
               const activeGhostId = gameState.party?.ghosts[0]?.id;
               if (activeGhostId) {
-                syncPartyHp(battleState, battleState.endReason, activeGhostId);
+                syncPartyHp(battleState, result.endReason, activeGhostId);
               }
               // 逃走成功
               setTimeout(() => {
@@ -257,11 +257,11 @@ function AuthenticatedContent() {
         enemyGhostType,
       );
 
-      if (result.battleEnded && battleState.endReason) {
+      if (result.battleEnded && result.endReason) {
         // HP同期（勝利/敗北時）
         const activeGhostId = gameState.party?.ghosts[0]?.id;
         if (activeGhostId) {
-          syncPartyHp(battleState, battleState.endReason, activeGhostId);
+          syncPartyHp(battleState, result.endReason, activeGhostId);
         }
         // バトル終了処理
         setTimeout(() => {
@@ -361,11 +361,11 @@ function AuthenticatedContent() {
             enemyGhostType,
           );
 
-          if (result.battleEnded && battleState.endReason) {
+          if (result.battleEnded && result.endReason) {
             // HP同期（敗北時）
             const activeGhostId = gameState.party?.ghosts[0]?.id;
             if (activeGhostId) {
-              syncPartyHp(battleState, battleState.endReason, activeGhostId);
+              syncPartyHp(battleState, result.endReason, activeGhostId);
             }
             // バトル終了処理
             setTimeout(() => {
@@ -406,11 +406,11 @@ function AuthenticatedContent() {
             enemyGhostType,
           );
 
-          if (result.battleEnded && battleState.endReason) {
+          if (result.battleEnded && result.endReason) {
             // HP同期（捕獲成功/失敗どちらでもバトル終了時）
             const activeGhostId = gameState.party?.ghosts[0]?.id;
             if (activeGhostId) {
-              syncPartyHp(battleState, battleState.endReason, activeGhostId);
+              syncPartyHp(battleState, result.endReason, activeGhostId);
             }
             // バトル終了処理
             setTimeout(() => {
