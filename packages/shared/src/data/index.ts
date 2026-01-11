@@ -7,6 +7,16 @@ export {
   generateWildGhost,
   getGhostSpeciesById,
 } from "./ghosts";
+export {
+  ALL_ITEMS,
+  getItemById,
+  ITEM_GHOST_BALL,
+  ITEM_HYPER_BALL,
+  ITEM_HYPER_POTION,
+  ITEM_POTION,
+  ITEM_SUPER_BALL,
+  ITEM_SUPER_POTION,
+} from "./items";
 export { ALL_MAPS, getMapById, MAP_001 } from "./maps";
 export {
   ALL_MOVES,
