@@ -28,6 +28,7 @@ import { type MenuItem, MenuScreen } from "./components/menu/MenuScreen";
 import { PartyScreen } from "./components/party/PartyScreen";
 import { useAuthState } from "./hooks/useAuthState";
 import { useBattleEndSync } from "./hooks/useBattleEndSync";
+import { getCaptureBonus } from "./hooks/useBattleItem";
 import { useBattleState } from "./hooks/useBattleState";
 import { useGameState } from "./hooks/useGameState";
 import type { Direction, EncounterResult } from "./hooks/useMapState";
@@ -371,10 +372,48 @@ function AuthenticatedContent() {
         return;
       }
 
-      // 捕獲アイテムの場合（タスク21.4で実装）
+      // 捕獲アイテムの場合
       if (itemData.category === "capture") {
-        console.log("Capture item selected:", itemId);
-        setPhase("command_select");
+        // アイテムを消費
+        const consumed = consumeItem(itemId);
+        if (!consumed) {
+          console.error("Failed to consume capture item:", itemId);
+          setPhase("command_select");
+          return;
+        }
+
+        // 捕獲ボーナスを計算
+        const itemBonus = getCaptureBonus(itemData);
+
+        // インベントリ更新をセーブキューに追加
+        updatePendingSaveData({ inventory: gameState.inventory });
+
+        // 捕獲アクション実行
+        if (playerGhostType && enemyGhostType) {
+          const result = executePlayerAction(
+            { type: "capture", itemBonus },
+            playerGhostType,
+            enemyGhostType,
+          );
+
+          if (result.battleEnded && battleState.endReason) {
+            // HP同期（捕獲成功/失敗どちらでもバトル終了時）
+            const activeGhostId = gameState.party?.ghosts[0]?.id;
+            if (activeGhostId) {
+              syncPartyHp(battleState, battleState.endReason, activeGhostId);
+            }
+            // バトル終了処理
+            setTimeout(() => {
+              resetBattle();
+              setScreen("map");
+              setPlayerGhostType(null);
+              setEnemyGhostType(null);
+            }, 2000);
+          } else {
+            // 捕獲失敗でバトル継続 - コマンド選択に戻る
+            setPhase("command_select");
+          }
+        }
         return;
       }
 
