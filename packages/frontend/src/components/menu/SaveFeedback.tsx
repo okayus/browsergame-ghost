@@ -75,6 +75,8 @@ export function SaveFeedback({ status, onRetry, onDismiss }: SaveFeedbackProps) 
             stroke="currentColor"
             viewBox="0 0 24 24"
             data-testid="save-success-icon"
+            role="img"
+            aria-label="成功"
           >
             <path
               strokeLinecap="round"
@@ -100,6 +102,8 @@ export function SaveFeedback({ status, onRetry, onDismiss }: SaveFeedbackProps) 
               stroke="currentColor"
               viewBox="0 0 24 24"
               data-testid="save-error-icon"
+              role="img"
+              aria-label="エラー"
             >
               <path
                 strokeLinecap="round"
