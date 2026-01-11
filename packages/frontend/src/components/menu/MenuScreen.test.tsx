@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ManualSaveStatus } from "./SaveFeedback";
 import { MenuScreen } from "./MenuScreen";
+import type { ManualSaveStatus } from "./SaveFeedback";
 
 describe("MenuScreen", () => {
   const mockOnSelectItem = vi.fn();

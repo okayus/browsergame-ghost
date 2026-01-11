@@ -50,10 +50,7 @@ export function SaveFeedback({ status, onRetry, onDismiss }: SaveFeedbackProps) 
       data-testid="save-feedback"
     >
       {status.type === "saving" && (
-        <div
-          className="flex items-center gap-3"
-          data-testid="save-feedback-saving"
-        >
+        <div className="flex items-center gap-3" data-testid="save-feedback-saving">
           {/* ローディングスピナー */}
           <div
             className="h-5 w-5 animate-spin rounded-full border-2 border-ghost-primary border-t-transparent"
@@ -64,10 +61,7 @@ export function SaveFeedback({ status, onRetry, onDismiss }: SaveFeedbackProps) 
       )}
 
       {status.type === "success" && (
-        <div
-          className="flex items-center gap-3 text-green-400"
-          data-testid="save-feedback-success"
-        >
+        <div className="flex items-center gap-3 text-green-400" data-testid="save-feedback-success">
           {/* 成功アイコン */}
           <svg
             className="h-5 w-5"
@@ -78,22 +72,14 @@ export function SaveFeedback({ status, onRetry, onDismiss }: SaveFeedbackProps) 
             role="img"
             aria-label="成功"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M5 13l4 4L19 7"
-            />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
           <span>セーブしました</span>
         </div>
       )}
 
       {status.type === "error" && (
-        <div
-          className="flex flex-col gap-2 text-ghost-danger"
-          data-testid="save-feedback-error"
-        >
+        <div className="flex flex-col gap-2 text-ghost-danger" data-testid="save-feedback-error">
           <div className="flex items-center gap-2">
             {/* エラーアイコン */}
             <svg

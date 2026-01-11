@@ -199,11 +199,7 @@ export function MenuScreen({
         {/* セーブフィードバック表示 */}
         {saveStatus && saveStatus.type !== "idle" && (
           <div className="mt-4">
-            <SaveFeedback
-              status={saveStatus}
-              onRetry={onSaveRetry}
-              onDismiss={onDismissSave}
-            />
+            <SaveFeedback status={saveStatus} onRetry={onSaveRetry} onDismiss={onDismissSave} />
           </div>
         )}
 
