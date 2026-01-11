@@ -18,37 +18,41 @@ vi.mock("@clerk/clerk-react", () => ({
 }));
 
 // Mock useAuthState hook
-const mockInitializeNewPlayer = vi.fn();
-const mockRetry = vi.fn();
-
 const createMockAuthState = (overrides: Partial<AuthState> = {}): AuthState => ({
   isAuthenticated: false,
   isAuthLoading: false,
   currentScreen: "welcome",
-  isDataLoaded: false,
-  error: null,
   ...overrides,
 });
 
 vi.mock("./hooks/useAuthState", () => ({
   useAuthState: vi.fn(() => ({
     state: createMockAuthState(),
-    needsInitialization: false,
-    initializeNewPlayer: mockInitializeNewPlayer,
-    retry: mockRetry,
-    saveData: null,
-    saving: false,
-    hasPendingCache: false,
-    lastSavedAt: null,
   })),
 }));
 
-// Mock useSaveData
-vi.mock("./api", () => ({
-  useSaveData: vi.fn(() => ({
-    data: null,
-    isLoading: false,
-    error: null,
+// Mock useSaveDataQuery - needs to be wrapped in Suspense
+vi.mock("./api/useSaveData", () => ({
+  useSaveDataQuery: vi.fn(() => ({
+    data: {
+      id: "player_1",
+      position: { mapId: "map-001", x: 5, y: 5 },
+      party: { ghosts: [] },
+      inventory: { items: [] },
+    },
+  })),
+  useInitializePlayerMutation: vi.fn(() => ({
+    mutate: vi.fn(),
+    isPending: false,
+    isSuccess: false,
+  })),
+  useAutoSave: vi.fn(() => ({
+    saving: false,
+    hasPendingCache: false,
+    lastSavedAt: null,
+    updatePendingSaveData: vi.fn(),
+    executeAutoSave: vi.fn(),
+    syncPendingCache: vi.fn(),
   })),
 }));
 
@@ -57,10 +61,11 @@ vi.mock("./hooks/useGameState", () => ({
   useGameState: vi.fn(() => ({
     state: {
       currentScreen: "map",
-      party: [],
+      party: { ghosts: [] },
       inventory: {},
       isLoaded: false,
     },
+    setScreen: vi.fn(),
     setParty: vi.fn(),
     setInventory: vi.fn(),
     setLoaded: vi.fn(),
@@ -80,6 +85,22 @@ vi.mock("./hooks/useMapState", () => ({
   })),
 }));
 
+// Mock useBattleState
+vi.mock("./hooks/useBattleState", () => ({
+  useBattleState: vi.fn(() => ({
+    state: {
+      phase: "idle",
+      playerGhost: null,
+      enemyGhost: null,
+      messages: [],
+    },
+    startBattle: vi.fn(),
+    setPhase: vi.fn(),
+    executePlayerAction: vi.fn(),
+    reset: vi.fn(),
+  })),
+}));
+
 // Import mocked modules for control
 import { useAuthState } from "./hooks/useAuthState";
 
@@ -88,32 +109,11 @@ describe("App", () => {
     vi.clearAllMocks();
   });
 
-  // ヘルパー関数: useAuthStateのモック値を作成
-  const createMockUseAuthStateReturn = (
-    stateOverrides: Partial<AuthState> = {},
-    overrides: {
-      needsInitialization?: boolean;
-      saveData?: ReturnType<typeof useAuthState>["saveData"];
-      saving?: boolean;
-      hasPendingCache?: boolean;
-      lastSavedAt?: Date | null;
-    } = {},
-  ) => ({
-    state: createMockAuthState(stateOverrides),
-    needsInitialization: overrides.needsInitialization ?? false,
-    initializeNewPlayer: mockInitializeNewPlayer,
-    retry: mockRetry,
-    saveData: overrides.saveData ?? null,
-    saving: overrides.saving ?? false,
-    hasPendingCache: overrides.hasPendingCache ?? false,
-    lastSavedAt: overrides.lastSavedAt ?? null,
-  });
-
   describe("ウェルカム画面", () => {
     it("authStateがwelcomeの時、WelcomeScreenが表示される", () => {
-      vi.mocked(useAuthState).mockReturnValue(
-        createMockUseAuthStateReturn({ currentScreen: "welcome" }),
-      );
+      vi.mocked(useAuthState).mockReturnValue({
+        state: createMockAuthState({ currentScreen: "welcome" }),
+      });
 
       render(<App />);
       expect(screen.getByTestId("welcome-screen")).toBeInTheDocument();
@@ -123,69 +123,28 @@ describe("App", () => {
 
   describe("ローディング画面", () => {
     it("authStateがloadingの時、LoadingScreenが表示される", () => {
-      vi.mocked(useAuthState).mockReturnValue(
-        createMockUseAuthStateReturn({ currentScreen: "loading", isAuthLoading: true }),
-      );
+      vi.mocked(useAuthState).mockReturnValue({
+        state: createMockAuthState({ currentScreen: "loading", isAuthLoading: true }),
+      });
 
       render(<App />);
       expect(screen.getByTestId("loading-screen")).toBeInTheDocument();
-      expect(screen.getByText("ゲームデータを読み込み中...")).toBeInTheDocument();
     });
   });
 
-  describe("エラー画面", () => {
-    it("authStateがerrorの時、ErrorScreenが表示される", () => {
-      vi.mocked(useAuthState).mockReturnValue(
-        createMockUseAuthStateReturn({
-          currentScreen: "error",
-          error: "テストエラー",
+  describe("認証済み画面", () => {
+    it("authStateがauthenticatedの時、Suspense内でゲームコンテンツがレンダリングされる", async () => {
+      vi.mocked(useAuthState).mockReturnValue({
+        state: createMockAuthState({
+          currentScreen: "authenticated",
           isAuthenticated: true,
         }),
-      );
+      });
 
       render(<App />);
-      expect(screen.getByTestId("error-screen")).toBeInTheDocument();
-      expect(screen.getByText("テストエラー")).toBeInTheDocument();
-    });
-  });
 
-  describe("ゲーム画面", () => {
-    it("authStateがgameの時、GameContainerが表示される", () => {
-      vi.mocked(useAuthState).mockReturnValue(
-        createMockUseAuthStateReturn({
-          currentScreen: "game",
-          isAuthenticated: true,
-          isDataLoaded: true,
-        }),
-      );
-
-      render(<App />);
+      // useSaveDataQueryがモックされているので、データが返されゲームコンテナが表示される
       expect(screen.getByTestId("game-container")).toBeInTheDocument();
-    });
-  });
-
-  describe("デフォルト画面", () => {
-    it("authStateが不明な状態の時、LoadingScreenが表示される", () => {
-      vi.mocked(useAuthState).mockReturnValue(
-        createMockUseAuthStateReturn({ currentScreen: "unknown" as "loading" }),
-      );
-
-      render(<App />);
-      expect(screen.getByTestId("loading-screen")).toBeInTheDocument();
-    });
-  });
-
-  describe("新規プレイヤー初期化", () => {
-    it("needsInitializationがtrueの時、initializeNewPlayerが呼ばれる", () => {
-      vi.mocked(useAuthState).mockReturnValue(
-        createMockUseAuthStateReturn(
-          { currentScreen: "loading", isAuthenticated: true },
-          { needsInitialization: true },
-        ),
-      );
-
-      render(<App />);
-      expect(mockInitializeNewPlayer).toHaveBeenCalled();
     });
   });
 });

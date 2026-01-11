@@ -3,6 +3,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
+import { QueryProvider } from "./providers/QueryProvider";
 
 const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
@@ -18,7 +19,9 @@ if (!rootElement) {
 createRoot(rootElement).render(
   <StrictMode>
     <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
-      <App />
+      <QueryProvider>
+        <App />
+      </QueryProvider>
     </ClerkProvider>
   </StrictMode>,
 );

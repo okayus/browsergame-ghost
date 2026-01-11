@@ -8,14 +8,17 @@ import {
   getGhostSpeciesById,
   getMapById,
   getMoveById,
+  type PlayerData,
 } from "@ghost-game/shared";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useAutoSave, useInitializePlayerMutation, useSaveDataQuery } from "./api/useSaveData";
 import { ErrorScreen } from "./components/auth/ErrorScreen";
 import { LoadingScreen } from "./components/auth/LoadingScreen";
 import { WelcomeScreen } from "./components/auth/WelcomeScreen";
 import { BattleScreen } from "./components/battle/BattleScreen";
 import { type BattleCommand, CommandPanel } from "./components/battle/CommandPanel";
 import { type DisplayMove, SkillSelectPanel } from "./components/battle/SkillSelectPanel";
+import { ErrorBoundary } from "./components/error/ErrorBoundary";
 import { GameContainer } from "./components/game/GameContainer";
 import { SaveStatus } from "./components/game/SaveStatus";
 import { MapScreen } from "./components/map/MapScreen";
@@ -27,18 +30,16 @@ import { useGameState } from "./hooks/useGameState";
 import type { Direction, EncounterResult } from "./hooks/useMapState";
 import { useMapState } from "./hooks/useMapState";
 
-function App() {
-  const clerk = useClerk();
-  const {
-    state: authState,
-    needsInitialization,
-    initializeNewPlayer,
-    retry,
-    saveData,
-    saving,
-    hasPendingCache,
-    lastSavedAt,
-  } = useAuthState();
+/**
+ * 認証済みユーザー向けのゲームコンテンツ
+ *
+ * Suspense内で使用され、useSuspenseQueryでデータ取得を行う
+ */
+function AuthenticatedContent() {
+  const { data: saveData } = useSaveDataQuery();
+  const initializeMutation = useInitializePlayerMutation();
+  const { saving, hasPendingCache, lastSavedAt } = useAutoSave();
+
   const { state: gameState, setScreen, setParty, setInventory, setLoaded } = useGameState();
   const { state: mapState, setMap, setPosition, move } = useMapState();
   const {
@@ -66,29 +67,37 @@ function App() {
     );
   }, []);
 
-  // セーブデータをゲーム状態に反映
-  useEffect(() => {
-    if (saveData && !gameState.isLoaded) {
-      setParty(saveData.party);
-      setInventory(saveData.inventory);
-      setPosition(saveData.position);
+  // ロードしたデータをゲーム状態に適用
+  const applyLoadedData = useCallback(
+    (data: PlayerData) => {
+      setParty(data.party);
+      setInventory(data.inventory);
+      setPosition(data.position);
 
       // マップデータをロード
-      const mapData = getMapById(saveData.position.mapId);
+      const mapData = getMapById(data.position.mapId);
       if (mapData) {
         setMap(mapData);
       }
 
       setLoaded();
-    }
-  }, [saveData, gameState.isLoaded, setParty, setInventory, setPosition, setMap, setLoaded]);
+    },
+    [setParty, setInventory, setPosition, setMap, setLoaded],
+  );
 
-  // 新規プレイヤーの初期化が必要な場合は自動実行
+  // 新規プレイヤーの初期化（saveDataがnullの場合）
   useEffect(() => {
-    if (needsInitialization) {
-      initializeNewPlayer();
+    if (saveData === null && !initializeMutation.isPending && !initializeMutation.isSuccess) {
+      initializeMutation.mutate();
     }
-  }, [needsInitialization, initializeNewPlayer]);
+  }, [saveData, initializeMutation]);
+
+  // セーブデータをゲーム状態に反映（初回のみ）
+  useEffect(() => {
+    if (saveData && !gameState.isLoaded) {
+      applyLoadedData(saveData);
+    }
+  }, [saveData, gameState.isLoaded, applyLoadedData]);
 
   // 移動処理
   const handleMove = (direction: Direction) => {
@@ -239,11 +248,11 @@ function App() {
 
     return battleState.playerGhost.ghost.moves
       .map((ownedMove) => {
-        const move = getMoveById(ownedMove.moveId);
-        if (!move) {
+        const moveData = getMoveById(ownedMove.moveId);
+        if (!moveData) {
           return null;
         }
-        return { move, ownedMove };
+        return { move: moveData, ownedMove };
       })
       .filter((m): m is DisplayMove => m !== null);
   }, [battleState.playerGhost]);
@@ -352,98 +361,111 @@ function App() {
     }
   };
 
-  // 画面に応じたコンテンツをレンダリング
-  const renderContent = () => {
-    switch (authState.currentScreen) {
-      case "welcome":
-        return (
-          <WelcomeScreen onSignIn={() => clerk.openSignIn()} onSignUp={() => clerk.openSignUp()} />
-        );
+  // 初期化中またはデータなしの場合はローディング
+  if (saveData === null || initializeMutation.isPending) {
+    return <LoadingScreen message="プレイヤーデータを初期化中..." />;
+  }
 
-      case "loading":
-        return <LoadingScreen message="ゲームデータを読み込み中..." />;
-
-      case "error":
-        return <ErrorScreen error={authState.error} onRetry={retry} />;
-
-      case "game":
-        return (
-          <div className="flex min-h-screen flex-col items-center justify-center bg-gray-900 p-4">
-            {/* セーブ状態表示 */}
-            <div className="mb-2 self-end">
-              <SaveStatus
-                saving={saving}
-                hasPendingCache={hasPendingCache}
-                lastSavedAt={lastSavedAt}
-              />
-            </div>
-            <GameContainer currentScreen={gameState.currentScreen} onKeyDown={handleKeyDown}>
-              {gameState.currentScreen === "map" && mapState.currentMap && (
-                <MapScreen
-                  mapData={mapState.currentMap}
-                  playerX={mapState.position.x}
-                  playerY={mapState.position.y}
-                  onMove={handleMove}
-                  onEncounter={handleEncounter}
-                />
-              )}
-              {gameState.currentScreen === "map" && !mapState.currentMap && (
-                <div className="flex h-full items-center justify-center">
-                  <p className="text-gray-400">マップデータを読み込み中...</p>
-                </div>
-              )}
-              {gameState.currentScreen === "battle" && (
-                <BattleScreen
-                  phase={battleState.phase}
-                  playerGhost={battleState.playerGhost}
-                  enemyGhost={battleState.enemyGhost}
-                  playerGhostType={playerGhostType ?? undefined}
-                  enemyGhostType={enemyGhostType ?? undefined}
-                  messages={battleState.messages}
-                  commandPanel={
-                    battleState.phase === "command_select" ? (
-                      <CommandPanel
-                        onSelectCommand={handleBattleCommand}
-                        canCapture={true}
-                        onKeyInput={keyInput}
-                      />
-                    ) : battleState.phase === "move_select" ? (
-                      <SkillSelectPanel
-                        moves={getPlayerMoves()}
-                        onSelectMove={handleMoveSelect}
-                        onBack={handleMoveSelectBack}
-                        onKeyInput={keyInput}
-                      />
-                    ) : undefined
-                  }
-                />
-              )}
-              {gameState.currentScreen === "menu" && (
-                <MenuScreen
-                  onSelectItem={handleMenuSelect}
-                  onClose={handleCloseMenu}
-                  onKeyInput={keyInput}
-                />
-              )}
-              {gameState.currentScreen === "party" && gameState.party && (
-                <PartyScreen
-                  party={gameState.party.ghosts}
-                  speciesMap={speciesMap}
-                  moves={ALL_MOVES}
-                  onClose={handleCloseParty}
-                  onKeyInput={keyInput}
-                />
-              )}
-            </GameContainer>
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-900 p-4">
+      {/* セーブ状態表示 */}
+      <div className="mb-2 self-end">
+        <SaveStatus saving={saving} hasPendingCache={hasPendingCache} lastSavedAt={lastSavedAt} />
+      </div>
+      <GameContainer currentScreen={gameState.currentScreen} onKeyDown={handleKeyDown}>
+        {gameState.currentScreen === "map" && mapState.currentMap && (
+          <MapScreen
+            mapData={mapState.currentMap}
+            playerX={mapState.position.x}
+            playerY={mapState.position.y}
+            onMove={handleMove}
+            onEncounter={handleEncounter}
+          />
+        )}
+        {gameState.currentScreen === "map" && !mapState.currentMap && (
+          <div className="flex h-full items-center justify-center">
+            <p className="text-gray-400">マップデータを読み込み中...</p>
           </div>
-        );
+        )}
+        {gameState.currentScreen === "battle" && (
+          <BattleScreen
+            phase={battleState.phase}
+            playerGhost={battleState.playerGhost}
+            enemyGhost={battleState.enemyGhost}
+            playerGhostType={playerGhostType ?? undefined}
+            enemyGhostType={enemyGhostType ?? undefined}
+            messages={battleState.messages}
+            commandPanel={
+              battleState.phase === "command_select" ? (
+                <CommandPanel
+                  onSelectCommand={handleBattleCommand}
+                  canCapture={true}
+                  onKeyInput={keyInput}
+                />
+              ) : battleState.phase === "move_select" ? (
+                <SkillSelectPanel
+                  moves={getPlayerMoves()}
+                  onSelectMove={handleMoveSelect}
+                  onBack={handleMoveSelectBack}
+                  onKeyInput={keyInput}
+                />
+              ) : undefined
+            }
+          />
+        )}
+        {gameState.currentScreen === "menu" && (
+          <MenuScreen
+            onSelectItem={handleMenuSelect}
+            onClose={handleCloseMenu}
+            onKeyInput={keyInput}
+          />
+        )}
+        {gameState.currentScreen === "party" && gameState.party && (
+          <PartyScreen
+            party={gameState.party.ghosts}
+            speciesMap={speciesMap}
+            moves={ALL_MOVES}
+            onClose={handleCloseParty}
+            onKeyInput={keyInput}
+          />
+        )}
+      </GameContainer>
+    </div>
+  );
+}
 
-      default:
-        return <LoadingScreen />;
-    }
-  };
+/**
+ * メインアプリケーションコンポーネント
+ *
+ * 認証状態に応じて適切な画面を表示する。
+ * 認証済みの場合はSuspense + ErrorBoundaryでゲームコンテンツをラップ。
+ */
+function App() {
+  const clerk = useClerk();
+  const { state: authState } = useAuthState();
 
-  return renderContent();
+  // 認証読み込み中
+  if (authState.currentScreen === "loading") {
+    return <LoadingScreen message="認証情報を確認中..." />;
+  }
+
+  // 未認証
+  if (authState.currentScreen === "welcome") {
+    return (
+      <WelcomeScreen onSignIn={() => clerk.openSignIn()} onSignUp={() => clerk.openSignUp()} />
+    );
+  }
+
+  // 認証済み - Suspense + ErrorBoundary でゲームコンテンツをラップ
+  return (
+    <ErrorBoundary
+      fallback={(error, reset) => <ErrorScreen error={error.message} onRetry={reset} />}
+    >
+      <Suspense fallback={<LoadingScreen message="ゲームデータを読み込み中..." />}>
+        <AuthenticatedContent />
+      </Suspense>
+    </ErrorBoundary>
+  );
 }
 
 export default App;
