@@ -331,7 +331,9 @@ describe("ItemSelectPanel", () => {
 
     it("should call onBack with Escape key when no items", () => {
       const onBack = vi.fn();
-      render(<ItemSelectPanel items={[]} onSelectItem={vi.fn()} onBack={onBack} onKeyInput="Escape" />);
+      render(
+        <ItemSelectPanel items={[]} onSelectItem={vi.fn()} onBack={onBack} onKeyInput="Escape" />,
+      );
 
       expect(onBack).toHaveBeenCalled();
     });
