@@ -12,7 +12,12 @@ import {
   type PlayerData,
 } from "@ghost-game/shared";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { useAutoSave, useInitializePlayerMutation, useSaveDataQuery } from "./api/useSaveData";
+import {
+  useAutoSave,
+  useInitializePlayerMutation,
+  useSaveDataMutation,
+  useSaveDataQuery,
+} from "./api/useSaveData";
 import { ErrorScreen } from "./components/auth/ErrorScreen";
 import { LoadingScreen } from "./components/auth/LoadingScreen";
 import { WelcomeScreen } from "./components/auth/WelcomeScreen";
@@ -25,6 +30,7 @@ import { GameContainer } from "./components/game/GameContainer";
 import { SaveStatus } from "./components/game/SaveStatus";
 import { MapScreen } from "./components/map/MapScreen";
 import { type MenuItem, MenuScreen } from "./components/menu/MenuScreen";
+import type { ManualSaveStatus } from "./components/menu/SaveFeedback";
 import { PartyScreen } from "./components/party/PartyScreen";
 import { useAuthState } from "./hooks/useAuthState";
 import { useBattleEndSync } from "./hooks/useBattleEndSync";
@@ -42,7 +48,11 @@ import { useMapState } from "./hooks/useMapState";
 function AuthenticatedContent() {
   const { data: saveData } = useSaveDataQuery();
   const initializeMutation = useInitializePlayerMutation();
+  const saveMutation = useSaveDataMutation();
   const { saving, hasPendingCache, lastSavedAt, updatePendingSaveData } = useAutoSave();
+
+  // 手動セーブの状態
+  const [manualSaveStatus, setManualSaveStatus] = useState<ManualSaveStatus>({ type: "idle" });
 
   const gameStateHook = useGameState();
   const {
@@ -451,6 +461,34 @@ function AuthenticatedContent() {
     setScreen("map");
   }, [setScreen]);
 
+  // 手動セーブを実行
+  const handleSave = useCallback(() => {
+    setManualSaveStatus({ type: "saving" });
+
+    saveMutation
+      .mutateAsync({
+        position: mapState.position,
+        party: gameState.party ?? undefined,
+        inventory: gameState.inventory ?? undefined,
+      })
+      .then(() => {
+        setManualSaveStatus({ type: "success" });
+      })
+      .catch((error: Error) => {
+        setManualSaveStatus({ type: "error", message: error.message });
+      });
+  }, [saveMutation, mapState.position, gameState.party, gameState.inventory]);
+
+  // セーブリトライ
+  const handleSaveRetry = useCallback(() => {
+    handleSave();
+  }, [handleSave]);
+
+  // セーブ成功メッセージを消去
+  const handleDismissSave = useCallback(() => {
+    setManualSaveStatus({ type: "idle" });
+  }, []);
+
   // メニュー項目選択ハンドラ
   const handleMenuSelect = useCallback(
     (item: MenuItem) => {
@@ -609,6 +647,10 @@ function AuthenticatedContent() {
             onSelectItem={handleMenuSelect}
             onClose={handleCloseMenu}
             onKeyInput={keyInput}
+            saveStatus={manualSaveStatus}
+            onSave={handleSave}
+            onSaveRetry={handleSaveRetry}
+            onDismissSave={handleDismissSave}
           />
         )}
         {gameState.currentScreen === "party" && gameState.party && (
