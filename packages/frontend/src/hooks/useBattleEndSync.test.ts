@@ -1,7 +1,9 @@
 import type { OwnedGhost, Party } from "@ghost-game/shared";
-import { describe, expect, it } from "vitest";
-import { syncPartyHpAfterBattle } from "./useBattleEndSync";
+import { act, renderHook } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { syncPartyHpAfterBattle, useBattleEndSync } from "./useBattleEndSync";
 import type { BattleEndReason, BattleState } from "./useBattleState";
+import { useGameState } from "./useGameState";
 
 const createMockGhost = (id: string, currentHp: number, maxHp: number): OwnedGhost => ({
   id,
@@ -160,6 +162,251 @@ describe("syncPartyHpAfterBattle", () => {
         "ghost-1",
       );
       expect(captureResult.saveRequired).toBe(true);
+    });
+  });
+});
+
+/**
+ * useBattleEndSync フックの統合テスト
+ *
+ * Task 23.1: バトル終了HP同期のテスト
+ * - 勝利時のHP同期テスト
+ * - 敗北時の全回復テスト
+ * - 逃走/捕獲時のHP同期テスト
+ * - セーブキュー追加の確認テスト
+ */
+describe("useBattleEndSync hook", () => {
+  const createMockPartyForHook = (): Party => ({
+    ghosts: [createMockGhost("ghost-1", 50, 50), createMockGhost("ghost-2", 40, 40)],
+  });
+
+  describe("勝利時のHP同期", () => {
+    it("勝利時にバトル中のHPがパーティに反映される", () => {
+      const mockUpdatePendingSaveData = vi.fn();
+      const { result: gameStateResult } = renderHook(() => useGameState());
+
+      // パーティをセット
+      act(() => {
+        gameStateResult.current.setParty(createMockPartyForHook());
+      });
+
+      // フックをレンダリング
+      const { result: syncResult } = renderHook(() =>
+        useBattleEndSync(gameStateResult.current, mockUpdatePendingSaveData),
+      );
+
+      // バトル状態（勝利、HP30残り）
+      const battleState = createMockBattleState(30, 50, "player_win");
+
+      // HP同期を実行
+      act(() => {
+        syncResult.current.syncPartyHp(battleState, "player_win", "ghost-1");
+      });
+
+      // パーティのHPが更新されていることを確認
+      expect(gameStateResult.current.state.party?.ghosts[0].currentHp).toBe(30);
+      expect(gameStateResult.current.state.party?.ghosts[1].currentHp).toBe(40); // 変更なし
+
+      // セーブキューに追加されていることを確認
+      expect(mockUpdatePendingSaveData).toHaveBeenCalledWith({
+        party: expect.objectContaining({
+          ghosts: expect.arrayContaining([
+            expect.objectContaining({ id: "ghost-1", currentHp: 30 }),
+          ]),
+        }),
+      });
+    });
+
+    it("勝利時にHPが0でもパーティに反映される", () => {
+      const mockUpdatePendingSaveData = vi.fn();
+      const { result: gameStateResult } = renderHook(() => useGameState());
+
+      act(() => {
+        gameStateResult.current.setParty(createMockPartyForHook());
+      });
+
+      const { result: syncResult } = renderHook(() =>
+        useBattleEndSync(gameStateResult.current, mockUpdatePendingSaveData),
+      );
+
+      // HPが0で勝利（相打ちのようなケース）
+      const battleState = createMockBattleState(0, 50, "player_win");
+
+      act(() => {
+        syncResult.current.syncPartyHp(battleState, "player_win", "ghost-1");
+      });
+
+      expect(gameStateResult.current.state.party?.ghosts[0].currentHp).toBe(0);
+    });
+  });
+
+  describe("敗北時の全回復", () => {
+    it("敗北時にパーティ全員のHPが最大HPまで回復する", () => {
+      const mockUpdatePendingSaveData = vi.fn();
+      const { result: gameStateResult } = renderHook(() => useGameState());
+
+      // ダメージを受けた状態のパーティをセット
+      act(() => {
+        gameStateResult.current.setParty({
+          ghosts: [
+            createMockGhost("ghost-1", 10, 50),
+            createMockGhost("ghost-2", 5, 40),
+            createMockGhost("ghost-3", 0, 30),
+          ],
+        });
+      });
+
+      const { result: syncResult } = renderHook(() =>
+        useBattleEndSync(gameStateResult.current, mockUpdatePendingSaveData),
+      );
+
+      const battleState = createMockBattleState(0, 50, "player_lose");
+
+      act(() => {
+        syncResult.current.syncPartyHp(battleState, "player_lose", "ghost-1");
+      });
+
+      // 全員が最大HPまで回復していることを確認
+      expect(gameStateResult.current.state.party?.ghosts[0].currentHp).toBe(50);
+      expect(gameStateResult.current.state.party?.ghosts[1].currentHp).toBe(40);
+      expect(gameStateResult.current.state.party?.ghosts[2].currentHp).toBe(30);
+
+      // セーブキューに追加されていることを確認
+      expect(mockUpdatePendingSaveData).toHaveBeenCalledWith({
+        party: expect.objectContaining({
+          ghosts: expect.arrayContaining([
+            expect.objectContaining({ id: "ghost-1", currentHp: 50 }),
+            expect.objectContaining({ id: "ghost-2", currentHp: 40 }),
+            expect.objectContaining({ id: "ghost-3", currentHp: 30 }),
+          ]),
+        }),
+      });
+    });
+  });
+
+  describe("逃走時のHP同期", () => {
+    it("逃走成功時にバトル中のHPがパーティに反映される", () => {
+      const mockUpdatePendingSaveData = vi.fn();
+      const { result: gameStateResult } = renderHook(() => useGameState());
+
+      act(() => {
+        gameStateResult.current.setParty(createMockPartyForHook());
+      });
+
+      const { result: syncResult } = renderHook(() =>
+        useBattleEndSync(gameStateResult.current, mockUpdatePendingSaveData),
+      );
+
+      const battleState = createMockBattleState(25, 50, "escape");
+
+      act(() => {
+        syncResult.current.syncPartyHp(battleState, "escape", "ghost-1");
+      });
+
+      expect(gameStateResult.current.state.party?.ghosts[0].currentHp).toBe(25);
+      expect(mockUpdatePendingSaveData).toHaveBeenCalled();
+    });
+  });
+
+  describe("捕獲時のHP同期", () => {
+    it("捕獲成功時にバトル中のHPがパーティに反映される", () => {
+      const mockUpdatePendingSaveData = vi.fn();
+      const { result: gameStateResult } = renderHook(() => useGameState());
+
+      act(() => {
+        gameStateResult.current.setParty(createMockPartyForHook());
+      });
+
+      const { result: syncResult } = renderHook(() =>
+        useBattleEndSync(gameStateResult.current, mockUpdatePendingSaveData),
+      );
+
+      const battleState = createMockBattleState(35, 50, "capture");
+
+      act(() => {
+        syncResult.current.syncPartyHp(battleState, "capture", "ghost-1");
+      });
+
+      expect(gameStateResult.current.state.party?.ghosts[0].currentHp).toBe(35);
+      expect(mockUpdatePendingSaveData).toHaveBeenCalled();
+    });
+  });
+
+  describe("セーブキュー追加の確認", () => {
+    it("全てのバトル終了理由でセーブキューに追加される", () => {
+      const endReasons: BattleEndReason[] = ["player_win", "player_lose", "escape", "capture"];
+
+      for (const reason of endReasons) {
+        const mockUpdatePendingSaveData = vi.fn();
+        const { result: gameStateResult } = renderHook(() => useGameState());
+
+        act(() => {
+          gameStateResult.current.setParty(createMockPartyForHook());
+        });
+
+        const { result: syncResult } = renderHook(() =>
+          useBattleEndSync(gameStateResult.current, mockUpdatePendingSaveData),
+        );
+
+        const battleState = createMockBattleState(30, 50, reason);
+
+        act(() => {
+          syncResult.current.syncPartyHp(battleState, reason, "ghost-1");
+        });
+
+        expect(mockUpdatePendingSaveData).toHaveBeenCalledTimes(1);
+        expect(mockUpdatePendingSaveData).toHaveBeenCalledWith({
+          party: expect.any(Object),
+        });
+      }
+    });
+  });
+
+  describe("エッジケース", () => {
+    it("パーティがnullの場合は何もしない", () => {
+      const mockUpdatePendingSaveData = vi.fn();
+      const { result: gameStateResult } = renderHook(() => useGameState());
+
+      // パーティをセットしない（null）
+
+      const { result: syncResult } = renderHook(() =>
+        useBattleEndSync(gameStateResult.current, mockUpdatePendingSaveData),
+      );
+
+      const battleState = createMockBattleState(30, 50, "player_win");
+
+      act(() => {
+        syncResult.current.syncPartyHp(battleState, "player_win", "ghost-1");
+      });
+
+      // セーブキューに追加されないことを確認
+      expect(mockUpdatePendingSaveData).not.toHaveBeenCalled();
+      expect(gameStateResult.current.state.party).toBeNull();
+    });
+
+    it("対象ゴーストがパーティに存在しない場合でもクラッシュしない", () => {
+      const mockUpdatePendingSaveData = vi.fn();
+      const { result: gameStateResult } = renderHook(() => useGameState());
+
+      act(() => {
+        gameStateResult.current.setParty(createMockPartyForHook());
+      });
+
+      const { result: syncResult } = renderHook(() =>
+        useBattleEndSync(gameStateResult.current, mockUpdatePendingSaveData),
+      );
+
+      const battleState = createMockBattleState(30, 50, "player_win");
+
+      // 存在しないゴーストIDを指定
+      act(() => {
+        syncResult.current.syncPartyHp(battleState, "player_win", "nonexistent-ghost");
+      });
+
+      // クラッシュせずにセーブキューに追加される
+      expect(mockUpdatePendingSaveData).toHaveBeenCalled();
+      // 既存のゴーストのHPは変更されない
+      expect(gameStateResult.current.state.party?.ghosts[0].currentHp).toBe(50);
     });
   });
 });
