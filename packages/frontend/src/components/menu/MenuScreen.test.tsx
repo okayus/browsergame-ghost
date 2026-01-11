@@ -1,5 +1,6 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ManualSaveStatus } from "./SaveFeedback";
 import { MenuScreen } from "./MenuScreen";
 
 describe("MenuScreen", () => {
@@ -185,6 +186,163 @@ describe("MenuScreen", () => {
       );
 
       expect(screen.getByTestId("menu-item-close")).toHaveAttribute("data-selected", "true");
+    });
+  });
+
+  describe("セーブ機能", () => {
+    const mockOnSave = vi.fn();
+    const mockOnSaveRetry = vi.fn();
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("セーブ項目が有効な場合、クリックするとonSaveが呼ばれる", () => {
+      const saveStatus: ManualSaveStatus = { type: "idle" };
+      render(
+        <MenuScreen
+          onSelectItem={mockOnSelectItem}
+          onClose={mockOnClose}
+          saveStatus={saveStatus}
+          onSave={mockOnSave}
+        />,
+      );
+
+      expect(screen.getByTestId("menu-item-save")).toHaveAttribute("data-disabled", "false");
+      fireEvent.click(screen.getByTestId("menu-item-save"));
+
+      expect(mockOnSave).toHaveBeenCalledTimes(1);
+    });
+
+    it("セーブ中はSaveFeedbackが表示される", () => {
+      const saveStatus: ManualSaveStatus = { type: "saving" };
+      render(
+        <MenuScreen
+          onSelectItem={mockOnSelectItem}
+          onClose={mockOnClose}
+          saveStatus={saveStatus}
+          onSave={mockOnSave}
+        />,
+      );
+
+      expect(screen.getByTestId("save-feedback")).toBeInTheDocument();
+      expect(screen.getByTestId("save-feedback-saving")).toBeInTheDocument();
+    });
+
+    it("セーブ中はメニュー操作が無効化される", () => {
+      const saveStatus: ManualSaveStatus = { type: "saving" };
+      render(
+        <MenuScreen
+          onSelectItem={mockOnSelectItem}
+          onClose={mockOnClose}
+          saveStatus={saveStatus}
+          onSave={mockOnSave}
+        />,
+      );
+
+      // すべてのメニュー項目が無効化される
+      expect(screen.getByTestId("menu-item-party")).toBeDisabled();
+      expect(screen.getByTestId("menu-item-items")).toBeDisabled();
+      expect(screen.getByTestId("menu-item-save")).toBeDisabled();
+      expect(screen.getByTestId("menu-item-close")).toBeDisabled();
+    });
+
+    it("セーブ成功時は成功メッセージが表示される", () => {
+      const saveStatus: ManualSaveStatus = { type: "success" };
+      render(
+        <MenuScreen
+          onSelectItem={mockOnSelectItem}
+          onClose={mockOnClose}
+          saveStatus={saveStatus}
+          onSave={mockOnSave}
+        />,
+      );
+
+      expect(screen.getByTestId("save-feedback-success")).toBeInTheDocument();
+      expect(screen.getByText("セーブしました")).toBeInTheDocument();
+    });
+
+    it("セーブ成功時は2秒後にonDismissSaveが呼ばれる", () => {
+      const mockOnDismissSave = vi.fn();
+      const saveStatus: ManualSaveStatus = { type: "success" };
+      render(
+        <MenuScreen
+          onSelectItem={mockOnSelectItem}
+          onClose={mockOnClose}
+          saveStatus={saveStatus}
+          onSave={mockOnSave}
+          onDismissSave={mockOnDismissSave}
+        />,
+      );
+
+      expect(mockOnDismissSave).not.toHaveBeenCalled();
+
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+
+      expect(mockOnDismissSave).toHaveBeenCalledTimes(1);
+    });
+
+    it("セーブ失敗時はエラーメッセージとリトライボタンが表示される", () => {
+      const saveStatus: ManualSaveStatus = { type: "error", message: "ネットワークエラー" };
+      render(
+        <MenuScreen
+          onSelectItem={mockOnSelectItem}
+          onClose={mockOnClose}
+          saveStatus={saveStatus}
+          onSave={mockOnSave}
+          onSaveRetry={mockOnSaveRetry}
+        />,
+      );
+
+      expect(screen.getByTestId("save-feedback-error")).toBeInTheDocument();
+      expect(screen.getByText("ネットワークエラー")).toBeInTheDocument();
+      expect(screen.getByTestId("save-retry-button")).toBeInTheDocument();
+    });
+
+    it("リトライボタンをクリックするとonSaveRetryが呼ばれる", () => {
+      const saveStatus: ManualSaveStatus = { type: "error", message: "エラー" };
+      render(
+        <MenuScreen
+          onSelectItem={mockOnSelectItem}
+          onClose={mockOnClose}
+          saveStatus={saveStatus}
+          onSave={mockOnSave}
+          onSaveRetry={mockOnSaveRetry}
+        />,
+      );
+
+      fireEvent.click(screen.getByTestId("save-retry-button"));
+
+      expect(mockOnSaveRetry).toHaveBeenCalledTimes(1);
+    });
+
+    it("セーブ成功後もメニュー画面は維持される（メニュー操作が有効になる）", () => {
+      const saveStatus: ManualSaveStatus = { type: "success" };
+      render(
+        <MenuScreen
+          onSelectItem={mockOnSelectItem}
+          onClose={mockOnClose}
+          saveStatus={saveStatus}
+          onSave={mockOnSave}
+        />,
+      );
+
+      // メニュー項目が有効（saveとsettings以外）
+      expect(screen.getByTestId("menu-item-party")).not.toBeDisabled();
+      expect(screen.getByTestId("menu-item-items")).not.toBeDisabled();
+      expect(screen.getByTestId("menu-item-close")).not.toBeDisabled();
+    });
+
+    it("saveStatusがない場合はセーブ項目は無効化される（後方互換性）", () => {
+      render(<MenuScreen onSelectItem={mockOnSelectItem} onClose={mockOnClose} />);
+
+      expect(screen.getByTestId("menu-item-save")).toHaveAttribute("data-disabled", "true");
     });
   });
 });

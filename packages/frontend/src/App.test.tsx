@@ -46,6 +46,10 @@ vi.mock("./api/useSaveData", () => ({
     isPending: false,
     isSuccess: false,
   })),
+  useSaveDataMutation: vi.fn(() => ({
+    mutateAsync: vi.fn(() => Promise.resolve({})),
+    isPending: false,
+  })),
   useAutoSave: vi.fn(() => ({
     saving: false,
     hasPendingCache: false,
