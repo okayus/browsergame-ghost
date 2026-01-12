@@ -203,6 +203,14 @@ function AuthenticatedContent() {
               // 捕獲成功時は捕獲ゴーストをセット（CaptureSuccessPanelで処理）
               if (result.endReason === "capture" && battleState.enemyGhost) {
                 setCapturedGhost(battleState.enemyGhost.ghost);
+              } else {
+                // 捕獲以外の終了理由（player_lose等）の場合
+                setTimeout(() => {
+                  resetBattle();
+                  setScreen("map");
+                  setPlayerGhostType(null);
+                  setEnemyGhostType(null);
+                }, 2000);
               }
             }
           }
@@ -418,6 +426,14 @@ function AuthenticatedContent() {
             // 捕獲成功時は捕獲ゴーストをセット（CaptureSuccessPanelで処理）
             if (result.endReason === "capture" && battleState.enemyGhost) {
               setCapturedGhost(battleState.enemyGhost.ghost);
+            } else {
+              // 捕獲以外の終了理由（player_lose等）の場合
+              setTimeout(() => {
+                resetBattle();
+                setScreen("map");
+                setPlayerGhostType(null);
+                setEnemyGhostType(null);
+              }, 2000);
             }
           } else {
             // 捕獲失敗でバトル継続 - コマンド選択に戻る
