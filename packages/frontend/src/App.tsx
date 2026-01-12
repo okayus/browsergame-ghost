@@ -5,6 +5,7 @@ import {
   ALL_MOVES,
   type GhostSpecies,
   type GhostType,
+  type OwnedGhost,
   generateWildGhost,
   getGhostSpeciesById,
   getMapById,
@@ -22,6 +23,7 @@ import { ErrorScreen } from "./components/auth/ErrorScreen";
 import { LoadingScreen } from "./components/auth/LoadingScreen";
 import { WelcomeScreen } from "./components/auth/WelcomeScreen";
 import { BattleScreen } from "./components/battle/BattleScreen";
+import { CaptureSuccessPanel } from "./components/battle/CaptureSuccessPanel";
 import { type BattleCommand, CommandPanel } from "./components/battle/CommandPanel";
 import { type DisplayItem, ItemSelectPanel } from "./components/battle/ItemSelectPanel";
 import { type DisplayMove, SkillSelectPanel } from "./components/battle/SkillSelectPanel";
@@ -62,6 +64,8 @@ function AuthenticatedContent() {
     setInventory,
     setLoaded,
     useItem: consumeItem,
+    addGhostToParty,
+    swapPartyGhost,
   } = gameStateHook;
   const { state: mapState, setMap, setPosition, move } = useMapState();
   const {
@@ -80,6 +84,8 @@ function AuthenticatedContent() {
   const [enemyGhostType, setEnemyGhostType] = useState<GhostType | null>(null);
   // キー入力状態（パネルに渡すため）
   const [keyInput, setKeyInput] = useState<string | undefined>(undefined);
+  // 捕獲したゴースト（CaptureSuccessPanel表示用）
+  const [capturedGhost, setCapturedGhost] = useState<OwnedGhost | null>(null);
 
   // ゴースト種族データのマップを作成
   const speciesMap = useMemo(() => {
@@ -189,18 +195,15 @@ function AuthenticatedContent() {
               enemyGhostType,
             );
             if (result.battleEnded && result.endReason) {
-              // HP同期（捕獲成功時）
+              // HP同期
               const activeGhostId = gameState.party?.ghosts[0]?.id;
               if (activeGhostId) {
                 syncPartyHp(battleState, result.endReason, activeGhostId);
               }
-              // バトル終了処理
-              setTimeout(() => {
-                resetBattle();
-                setScreen("map");
-                setPlayerGhostType(null);
-                setEnemyGhostType(null);
-              }, 2000);
+              // 捕獲成功時は捕獲ゴーストをセット（CaptureSuccessPanelで処理）
+              if (result.endReason === "capture" && battleState.enemyGhost) {
+                setCapturedGhost(battleState.enemyGhost.ghost);
+              }
             }
           }
           break;
@@ -407,18 +410,15 @@ function AuthenticatedContent() {
           );
 
           if (result.battleEnded && result.endReason) {
-            // HP同期（捕獲成功/失敗どちらでもバトル終了時）
+            // HP同期
             const activeGhostId = gameState.party?.ghosts[0]?.id;
             if (activeGhostId) {
               syncPartyHp(battleState, result.endReason, activeGhostId);
             }
-            // バトル終了処理
-            setTimeout(() => {
-              resetBattle();
-              setScreen("map");
-              setPlayerGhostType(null);
-              setEnemyGhostType(null);
-            }, 2000);
+            // 捕獲成功時は捕獲ゴーストをセット（CaptureSuccessPanelで処理）
+            if (result.endReason === "capture" && battleState.enemyGhost) {
+              setCapturedGhost(battleState.enemyGhost.ghost);
+            }
           } else {
             // 捕獲失敗でバトル継続 - コマンド選択に戻る
             setPhase("command_select");
@@ -450,6 +450,50 @@ function AuthenticatedContent() {
   const handleItemSelectBack = useCallback(() => {
     setPhase("command_select");
   }, [setPhase]);
+
+  // 捕獲完了後のバトル終了処理
+  const finishCaptureAndBattle = useCallback(() => {
+    setCapturedGhost(null);
+    resetBattle();
+    setScreen("map");
+    setPlayerGhostType(null);
+    setEnemyGhostType(null);
+  }, [resetBattle, setScreen]);
+
+  // 捕獲したゴーストをパーティに追加
+  const handleAddCapturedToParty = useCallback(() => {
+    if (capturedGhost) {
+      addGhostToParty(capturedGhost);
+      // パーティ更新をセーブキューに追加
+      updatePendingSaveData({ party: gameState.party ?? undefined });
+    }
+    finishCaptureAndBattle();
+  }, [
+    capturedGhost,
+    addGhostToParty,
+    gameState.party,
+    updatePendingSaveData,
+    finishCaptureAndBattle,
+  ]);
+
+  // 捕獲したゴーストをボックスに送る（未実装のため単純に終了）
+  const handleSendCapturedToBox = useCallback(() => {
+    // ボックス機能は未実装なので単純に終了
+    finishCaptureAndBattle();
+  }, [finishCaptureAndBattle]);
+
+  // 捕獲したゴーストとパーティのゴーストを入れ替え
+  const handleSwapCapturedWithParty = useCallback(
+    (partyIndex: number) => {
+      if (capturedGhost) {
+        swapPartyGhost(partyIndex, capturedGhost);
+        // パーティ更新をセーブキューに追加
+        updatePendingSaveData({ party: gameState.party ?? undefined });
+      }
+      finishCaptureAndBattle();
+    },
+    [capturedGhost, swapPartyGhost, gameState.party, updatePendingSaveData, finishCaptureAndBattle],
+  );
 
   // メニューを開く
   const handleOpenMenu = useCallback(() => {
@@ -636,6 +680,17 @@ function AuthenticatedContent() {
                   items={getBattleItems()}
                   onSelectItem={handleItemSelect}
                   onBack={handleItemSelectBack}
+                  onKeyInput={keyInput}
+                />
+              ) : battleState.phase === "capture_success" && capturedGhost ? (
+                <CaptureSuccessPanel
+                  capturedGhost={capturedGhost}
+                  party={gameState.party?.ghosts ?? []}
+                  getSpeciesName={(id) => getGhostSpeciesById(id)?.name ?? id}
+                  getSpeciesType={(id) => getGhostSpeciesById(id)?.type ?? "normal"}
+                  onAddToParty={handleAddCapturedToParty}
+                  onSendToBox={handleSendCapturedToBox}
+                  onSwapWithParty={handleSwapCapturedWithParty}
                   onKeyInput={keyInput}
                 />
               ) : undefined

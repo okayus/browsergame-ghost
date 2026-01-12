@@ -188,6 +188,8 @@ describe("App", () => {
         updatePartyGhost: vi.fn(),
         useItem: vi.fn(() => true),
         addItem: vi.fn(),
+        addGhostToParty: vi.fn(() => true),
+        swapPartyGhost: vi.fn(() => null),
         resetGame: vi.fn(),
       });
     };
