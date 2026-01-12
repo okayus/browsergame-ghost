@@ -96,11 +96,7 @@ describe("useBattleHandlers", () => {
         result.current.handleBattleCommand("run");
       });
 
-      expect(props.executePlayerAction).toHaveBeenCalledWith(
-        { type: "escape" },
-        "fire",
-        "water",
-      );
+      expect(props.executePlayerAction).toHaveBeenCalledWith({ type: "escape" }, "fire", "water");
       expect(props.syncPartyHp).toHaveBeenCalled();
       expect(props.finishBattle).toHaveBeenCalledWith(1500);
     });
@@ -122,9 +118,7 @@ describe("useBattleHandlers", () => {
         "fire",
         "water",
       );
-      expect(props.setCapturedGhost).toHaveBeenCalledWith(
-        props.battleState.enemyGhost?.ghost,
-      );
+      expect(props.setCapturedGhost).toHaveBeenCalledWith(props.battleState.enemyGhost?.ghost);
       expect(props.finishBattle).not.toHaveBeenCalled();
     });
 

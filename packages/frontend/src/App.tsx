@@ -121,22 +121,19 @@ function AuthenticatedContent() {
   });
 
   // 捕獲ハンドラフック
-  const {
-    handleAddCapturedToParty,
-    handleSendCapturedToBox,
-    handleSwapCapturedWithParty,
-  } = useCaptureHandlers({
-    capturedGhost,
-    setCapturedGhost,
-    addGhostToParty,
-    swapPartyGhost,
-    party: gameState.party,
-    updatePendingSaveData,
-    resetBattle,
-    setScreen,
-    setPlayerGhostType,
-    setEnemyGhostType,
-  });
+  const { handleAddCapturedToParty, handleSendCapturedToBox, handleSwapCapturedWithParty } =
+    useCaptureHandlers({
+      capturedGhost,
+      setCapturedGhost,
+      addGhostToParty,
+      swapPartyGhost,
+      party: gameState.party,
+      updatePendingSaveData,
+      resetBattle,
+      setScreen,
+      setPlayerGhostType,
+      setEnemyGhostType,
+    });
 
   // ゴースト種族データのマップを作成
   const speciesMap = useMemo(() => {

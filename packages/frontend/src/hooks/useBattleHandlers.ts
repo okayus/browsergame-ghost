@@ -1,8 +1,8 @@
 import {
   ALL_ITEMS,
   type BattlePhase,
-  getMoveById,
   type GhostType,
+  getMoveById,
   type Item,
   type Move,
   type OwnedGhost,
@@ -44,7 +44,9 @@ export interface UseBattleHandlersProps {
   /** アイテムを消費する */
   consumeItem: (itemId: string) => boolean;
   /** 保存待ちデータを更新する */
-  updatePendingSaveData: (data: { inventory?: { items: { itemId: string; quantity: number }[] } }) => void;
+  updatePendingSaveData: (data: {
+    inventory?: { items: { itemId: string; quantity: number }[] };
+  }) => void;
   /** 捕獲したゴーストをセットする */
   setCapturedGhost: (ghost: OwnedGhost | null) => void;
   /** パーティの先頭ゴーストのID */
@@ -138,11 +140,7 @@ export function useBattleHandlers({
         case "run":
           // 逃走処理
           if (playerGhostType && enemyGhostType) {
-            const result = executePlayerAction(
-              { type: "escape" },
-              playerGhostType,
-              enemyGhostType,
-            );
+            const result = executePlayerAction({ type: "escape" }, playerGhostType, enemyGhostType);
             if (result.battleEnded && result.endReason) {
               // HP同期（逃走成功時）
               if (activeGhostId) {
@@ -175,9 +173,7 @@ export function useBattleHandlers({
         return;
       }
 
-      const moveIndex = battleState.playerGhost.ghost.moves.findIndex(
-        (m) => m.moveId === moveId,
-      );
+      const moveIndex = battleState.playerGhost.ghost.moves.findIndex((m) => m.moveId === moveId);
       if (moveIndex === -1) {
         return;
       }
