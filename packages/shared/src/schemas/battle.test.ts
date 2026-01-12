@@ -56,6 +56,7 @@ describe("BattlePhaseSchema", () => {
     expect(BattlePhaseSchema.parse("item_select")).toBe("item_select");
     expect(BattlePhaseSchema.parse("executing")).toBe("executing");
     expect(BattlePhaseSchema.parse("result")).toBe("result");
+    expect(BattlePhaseSchema.parse("capture_success")).toBe("capture_success");
   });
 
   it("should reject invalid phases", () => {

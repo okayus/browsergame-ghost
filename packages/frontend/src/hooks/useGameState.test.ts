@@ -249,6 +249,127 @@ describe("useGameState", () => {
     });
   });
 
+  describe("addGhostToParty", () => {
+    it("should add ghost to party", () => {
+      const { result } = renderHook(() => useGameState());
+      const party = createMockParty();
+
+      act(() => {
+        result.current.setParty(party);
+      });
+
+      const newGhost = createMockGhost("ghost-3");
+      let success: boolean;
+      act(() => {
+        success = result.current.addGhostToParty(newGhost);
+      });
+
+      expect(success!).toBe(true);
+      expect(result.current.state.party?.ghosts.length).toBe(3);
+      expect(result.current.state.party?.ghosts[2]).toEqual(newGhost);
+    });
+
+    it("should return false when party is null", () => {
+      const { result } = renderHook(() => useGameState());
+
+      let success: boolean;
+      act(() => {
+        success = result.current.addGhostToParty(createMockGhost("ghost-1"));
+      });
+
+      expect(success!).toBe(false);
+    });
+
+    it("should return false when party is full (6 ghosts)", () => {
+      const { result } = renderHook(() => useGameState());
+
+      act(() => {
+        result.current.setParty({
+          ghosts: [
+            createMockGhost("g1"),
+            createMockGhost("g2"),
+            createMockGhost("g3"),
+            createMockGhost("g4"),
+            createMockGhost("g5"),
+            createMockGhost("g6"),
+          ],
+        });
+      });
+
+      let success: boolean;
+      act(() => {
+        success = result.current.addGhostToParty(createMockGhost("g7"));
+      });
+
+      expect(success!).toBe(false);
+      expect(result.current.state.party?.ghosts.length).toBe(6);
+    });
+  });
+
+  describe("swapPartyGhost", () => {
+    it("should swap ghost at specified index", () => {
+      const { result } = renderHook(() => useGameState());
+      const party = createMockParty();
+
+      act(() => {
+        result.current.setParty(party);
+      });
+
+      const newGhost = createMockGhost("ghost-new");
+      let removed: OwnedGhost | null;
+      act(() => {
+        removed = result.current.swapPartyGhost(0, newGhost);
+      });
+
+      expect(removed!).toEqual(party.ghosts[0]);
+      expect(result.current.state.party?.ghosts[0]).toEqual(newGhost);
+      expect(result.current.state.party?.ghosts.length).toBe(2);
+    });
+
+    it("should return null when party is null", () => {
+      const { result } = renderHook(() => useGameState());
+
+      let removed: OwnedGhost | null;
+      act(() => {
+        removed = result.current.swapPartyGhost(0, createMockGhost("ghost-new"));
+      });
+
+      expect(removed!).toBeNull();
+    });
+
+    it("should return null when index is out of range", () => {
+      const { result } = renderHook(() => useGameState());
+      const party = createMockParty();
+
+      act(() => {
+        result.current.setParty(party);
+      });
+
+      let removed: OwnedGhost | null;
+      act(() => {
+        removed = result.current.swapPartyGhost(10, createMockGhost("ghost-new"));
+      });
+
+      expect(removed!).toBeNull();
+    });
+
+    it("should return null when index is negative", () => {
+      const { result } = renderHook(() => useGameState());
+      const party = createMockParty();
+
+      act(() => {
+        result.current.setParty(party);
+      });
+
+      let removed: OwnedGhost | null;
+      act(() => {
+        removed = result.current.swapPartyGhost(-1, createMockGhost("ghost-new"));
+      });
+
+      expect(removed!).toBeNull();
+    });
+  });
+
   describe("resetGame", () => {
     it("should reset to initial state", () => {
       const { result } = renderHook(() => useGameState());

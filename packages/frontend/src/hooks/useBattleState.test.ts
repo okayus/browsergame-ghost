@@ -751,6 +751,26 @@ describe("useBattleState - バトル進行詳細テスト", () => {
       expect(turnResult!.battleEnded).toBe(true);
       expect(turnResult!.endReason).toBe("capture");
     });
+
+    it("捕獲成功時はcapture_successフェーズになる", () => {
+      const { result } = renderHook(() => useBattleState());
+      const weakEnemy: OwnedGhost = {
+        ...createMockEnemyGhost(),
+        currentHp: 1,
+      };
+
+      act(() => {
+        result.current.startBattle(createMockPlayerGhost(), weakEnemy, "ghost");
+      });
+
+      act(() => {
+        result.current.executePlayerAction({ type: "capture", itemBonus: 100 }, "fire", "ghost", {
+          capture: 0.5,
+        });
+      });
+
+      expect(result.current.state.phase).toBe("capture_success");
+    });
   });
 
   describe("executePlayerAction - item（回復アイテム）", () => {

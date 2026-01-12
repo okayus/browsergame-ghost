@@ -466,7 +466,11 @@ export function useBattleState(): UseBattleStateReturn {
         enemyGhost: prev.enemyGhost ? { ...prev.enemyGhost, currentHp: newEnemyHp } : null,
         turnCount: prev.turnCount + 1,
         escapeAttempts: newEscapeAttempts,
-        phase: battleEnded ? "result" : "command_select",
+        phase: battleEnded
+          ? endReason === "capture"
+            ? "capture_success"
+            : "result"
+          : "command_select",
         isActive: !battleEnded,
         endReason,
         messages: [

@@ -86,6 +86,7 @@ export function BattleScreen({
             <span className="text-xl text-ghost-text-bright">バトル終了</span>
           </div>
         )}
+        {phase === "capture_success" && commandPanel}
 
         {/* メッセージボックス（オーバーレイ） */}
         {messageBox}

@@ -32,6 +32,10 @@ export interface UseGameStateReturn {
   setParty: (party: Party) => void;
   /** パーティのゴーストを更新する */
   updatePartyGhost: (ghostId: string, updates: Partial<OwnedGhost>) => void;
+  /** パーティにゴーストを追加する（上限6体） */
+  addGhostToParty: (ghost: OwnedGhost) => boolean;
+  /** パーティのゴーストを入れ替える */
+  swapPartyGhost: (index: number, newGhost: OwnedGhost) => OwnedGhost | null;
   /** インベントリを設定する */
   setInventory: (inventory: Inventory) => void;
   /** アイテムを使用する（数量を減らす） */
@@ -86,6 +90,52 @@ export function useGameState(): UseGameStateReturn {
       };
     });
   }, []);
+
+  const addGhostToParty = useCallback(
+    (ghost: OwnedGhost): boolean => {
+      // パーティがないか上限に達している場合は失敗
+      if (!state.party || state.party.ghosts.length >= 6) {
+        return false;
+      }
+
+      setState((prev) => {
+        if (!prev.party || prev.party.ghosts.length >= 6) return prev;
+
+        return {
+          ...prev,
+          party: { ghosts: [...prev.party.ghosts, ghost] },
+        };
+      });
+
+      return true;
+    },
+    [state.party],
+  );
+
+  const swapPartyGhost = useCallback(
+    (index: number, newGhost: OwnedGhost): OwnedGhost | null => {
+      if (!state.party || index < 0 || index >= state.party.ghosts.length) {
+        return null;
+      }
+
+      const removedGhost = state.party.ghosts[index];
+
+      setState((prev) => {
+        if (!prev.party || index < 0 || index >= prev.party.ghosts.length) return prev;
+
+        const updatedGhosts = [...prev.party.ghosts];
+        updatedGhosts[index] = newGhost;
+
+        return {
+          ...prev,
+          party: { ghosts: updatedGhosts },
+        };
+      });
+
+      return removedGhost;
+    },
+    [state.party],
+  );
 
   const setInventory = useCallback((inventory: Inventory) => {
     setState((prev) => ({ ...prev, inventory }));
@@ -162,6 +212,8 @@ export function useGameState(): UseGameStateReturn {
     setScreen,
     setParty,
     updatePartyGhost,
+    addGhostToParty,
+    swapPartyGhost,
     setInventory,
     useItem,
     addItem,

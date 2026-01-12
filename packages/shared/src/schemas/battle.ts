@@ -35,6 +35,7 @@ export const BattlePhaseSchema = z.enum([
   "item_select", // アイテム選択中
   "executing", // ターン実行中
   "result", // 結果表示中
+  "capture_success", // 捕獲成功
 ]);
 
 export type BattlePhase = z.infer<typeof BattlePhaseSchema>;
