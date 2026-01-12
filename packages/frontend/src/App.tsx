@@ -5,11 +5,11 @@ import {
   ALL_MOVES,
   type GhostSpecies,
   type GhostType,
-  type OwnedGhost,
   generateWildGhost,
   getGhostSpeciesById,
   getMapById,
   getMoveById,
+  type OwnedGhost,
   type PlayerData,
 } from "@ghost-game/shared";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
