@@ -6,8 +6,8 @@ import type { GhostSpecies, OwnedGhost } from "@ghost-game/shared";
 export interface GhostSummaryCardProps {
   /** 表示するゴースト */
   ghost: OwnedGhost;
-  /** ゴースト種族データ */
-  species: GhostSpecies;
+  /** ゴースト種族データ（未取得時はundefined） */
+  species: GhostSpecies | undefined;
   /** 選択状態 */
   isSelected: boolean;
   /** クリック時のコールバック */
@@ -37,7 +37,7 @@ function getHpBarColor(currentHp: number, maxHp: number): string {
  * - 選択状態の視覚的フィードバック
  */
 export function GhostSummaryCard({ ghost, species, isSelected, onClick }: GhostSummaryCardProps) {
-  const displayName = ghost.nickname ?? species.name;
+  const displayName = ghost.nickname ?? species?.name ?? ghost.speciesId;
   const hpPercentage = ((ghost.currentHp / ghost.maxHp) * 100).toFixed(2);
   const hpBarColor = getHpBarColor(ghost.currentHp, ghost.maxHp);
 

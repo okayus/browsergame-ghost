@@ -4,6 +4,7 @@ export {
   GHOST_FIRELING,
   GHOST_LEAFSHADE,
   GHOST_SPIRITPUFF,
+  GHOST_SPECIES_MAP,
   generateWildGhost,
   getGhostSpeciesById,
 } from "./ghosts";
@@ -16,6 +17,7 @@ export {
   ITEM_POTION,
   ITEM_SUPER_BALL,
   ITEM_SUPER_POTION,
+  ITEMS_MAP,
 } from "./items";
 export { ALL_MAPS, getMapById, MAP_001 } from "./maps";
 export {
@@ -33,4 +35,5 @@ export {
   MOVE_THUNDER_SHOCK,
   MOVE_VINE_WHIP,
   MOVE_WATER_GUN,
+  MOVES_MAP,
 } from "./moves";

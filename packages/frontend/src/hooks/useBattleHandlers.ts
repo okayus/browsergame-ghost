@@ -1,9 +1,9 @@
 import {
-  ALL_ITEMS,
   type BattlePhase,
   type GhostType,
+  getItemById,
   getMoveById,
-  type Item,
+  ITEMS_MAP,
   type Move,
   type OwnedGhost,
   type OwnedMove,
@@ -232,26 +232,22 @@ export function useBattleHandlers({
 
   // バトル中のアイテム一覧を取得（回復系と捕獲系のみ）
   const getBattleItems = useCallback((): DisplayItem[] => {
-    return inventoryItems
-      .map((entry) => {
-        const itemData = ALL_ITEMS.find((item: Item) => item.id === entry.itemId);
-        if (!itemData) {
-          return null;
-        }
-        // バトル中は回復系と捕獲系のみ表示
-        if (itemData.category !== "healing" && itemData.category !== "capture") {
-          return null;
-        }
-        return { item: itemData, entry };
-      })
-      .filter((i): i is DisplayItem => i !== null);
+    const result: DisplayItem[] = [];
+    for (const entry of inventoryItems) {
+      const itemData = ITEMS_MAP.get(entry.itemId);
+      if (!itemData) continue;
+      // バトル中は回復系と捕獲系のみ表示
+      if (itemData.category !== "healing" && itemData.category !== "capture") continue;
+      result.push({ item: itemData, entry });
+    }
+    return result;
   }, [inventoryItems]);
 
   // アイテム選択ハンドラ
   const handleItemSelect = useCallback(
     (itemId: string) => {
       // アイテムマスタから情報取得
-      const itemData = ALL_ITEMS.find((item: Item) => item.id === itemId);
+      const itemData = getItemById(itemId);
       if (!itemData) {
         console.error("Item not found:", itemId);
         setPhase("command_select");

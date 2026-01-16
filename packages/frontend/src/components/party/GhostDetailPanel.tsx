@@ -6,8 +6,8 @@ import type { GhostSpecies, GhostType, Move, OwnedGhost } from "@ghost-game/shar
 export interface GhostDetailPanelProps {
   /** 表示するゴースト */
   ghost: OwnedGhost;
-  /** ゴースト種族データ */
-  species: GhostSpecies;
+  /** ゴースト種族データ（未取得時はundefined） */
+  species: GhostSpecies | undefined;
   /** 技データ配列 */
   moves: Move[];
   /** 閉じる時のコールバック */
@@ -53,8 +53,8 @@ function getTypeBgClass(type: GhostType): string {
  * - 技のPP残量表示
  */
 export function GhostDetailPanel({ ghost, species, moves, onClose }: GhostDetailPanelProps) {
-  const displayName = ghost.nickname ?? species.name;
-  const showSpeciesName = ghost.nickname !== undefined;
+  const displayName = ghost.nickname ?? species?.name ?? ghost.speciesId;
+  const showSpeciesName = ghost.nickname !== undefined && species !== undefined;
 
   return (
     <div
@@ -65,7 +65,7 @@ export function GhostDetailPanel({ ghost, species, moves, onClose }: GhostDetail
       <div className="mb-4 flex items-start justify-between">
         <div>
           <h2 className="text-xl font-bold text-ghost-text-bright">{displayName}</h2>
-          {showSpeciesName && <p className="text-sm text-ghost-text-muted">{species.name}</p>}
+          {showSpeciesName && <p className="text-sm text-ghost-text-muted">{species?.name}</p>}
         </div>
         <div className="flex items-center gap-2">
           <span className="text-ghost-text-muted">Lv.{ghost.level}</span>
@@ -96,12 +96,14 @@ export function GhostDetailPanel({ ghost, species, moves, onClose }: GhostDetail
 
       {/* タイプとHP */}
       <div className="mb-4 flex items-center gap-4">
-        <span
-          className={`rounded-full px-3 py-1 text-sm font-bold text-white ${getTypeBgClass(species.type)}`}
-          data-testid="ghost-type"
-        >
-          {getTypeLabel(species.type)}
-        </span>
+        {species && (
+          <span
+            className={`rounded-full px-3 py-1 text-sm font-bold text-white ${getTypeBgClass(species.type)}`}
+            data-testid="ghost-type"
+          >
+            {getTypeLabel(species.type)}
+          </span>
+        )}
         <span className="text-sm text-ghost-text-muted" data-testid="current-hp">
           HP: {ghost.currentHp}/{ghost.maxHp}
         </span>

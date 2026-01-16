@@ -157,8 +157,15 @@ export const ALL_MOVES: Move[] = [
 ];
 
 /**
+ * 技IDからデータへのMap（O(1)ルックアップ用）
+ */
+export const MOVES_MAP: ReadonlyMap<string, Move> = new Map(
+  ALL_MOVES.map((move) => [move.id, move]),
+);
+
+/**
  * 技IDから技データを取得
  */
 export function getMoveById(moveId: string): Move | undefined {
-  return ALL_MOVES.find((move) => move.id === moveId);
+  return MOVES_MAP.get(moveId);
 }

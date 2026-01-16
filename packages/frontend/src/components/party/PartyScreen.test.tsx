@@ -33,41 +33,50 @@ const mockMoves: Move[] = [
   },
 ];
 
-const mockSpeciesMap: Record<string, GhostSpecies> = {
-  fire_ghost: {
-    id: "fire_ghost",
-    name: "ファイヤーゴースト",
-    type: "fire",
-    baseStats: { hp: 45, attack: 50, defense: 35, speed: 45 },
-    learnableMoves: [
-      { level: 1, moveId: "tackle" },
-      { level: 5, moveId: "ember" },
-    ],
-    description: "炎をまとった霊",
-    rarity: "common",
-  },
-  water_ghost: {
-    id: "water_ghost",
-    name: "ウォーターゴースト",
-    type: "water",
-    baseStats: { hp: 50, attack: 40, defense: 45, speed: 40 },
-    learnableMoves: [
-      { level: 1, moveId: "tackle" },
-      { level: 5, moveId: "water-gun" },
-    ],
-    description: "水をまとった霊",
-    rarity: "common",
-  },
-  grass_ghost: {
-    id: "grass_ghost",
-    name: "グラスゴースト",
-    type: "grass",
-    baseStats: { hp: 45, attack: 45, defense: 40, speed: 50 },
-    learnableMoves: [{ level: 1, moveId: "tackle" }],
-    description: "草をまとった霊",
-    rarity: "common",
-  },
-};
+const mockSpeciesMap: ReadonlyMap<string, GhostSpecies> = new Map([
+  [
+    "fire_ghost",
+    {
+      id: "fire_ghost",
+      name: "ファイヤーゴースト",
+      type: "fire",
+      baseStats: { hp: 45, attack: 50, defense: 35, speed: 45 },
+      learnableMoves: [
+        { level: 1, moveId: "tackle" },
+        { level: 5, moveId: "ember" },
+      ],
+      description: "炎をまとった霊",
+      rarity: "common",
+    },
+  ],
+  [
+    "water_ghost",
+    {
+      id: "water_ghost",
+      name: "ウォーターゴースト",
+      type: "water",
+      baseStats: { hp: 50, attack: 40, defense: 45, speed: 40 },
+      learnableMoves: [
+        { level: 1, moveId: "tackle" },
+        { level: 5, moveId: "water-gun" },
+      ],
+      description: "水をまとった霊",
+      rarity: "common",
+    },
+  ],
+  [
+    "grass_ghost",
+    {
+      id: "grass_ghost",
+      name: "グラスゴースト",
+      type: "grass",
+      baseStats: { hp: 45, attack: 45, defense: 40, speed: 50 },
+      learnableMoves: [{ level: 1, moveId: "tackle" }],
+      description: "草をまとった霊",
+      rarity: "common",
+    },
+  ],
+]);
 
 const mockParty: OwnedGhost[] = [
   {

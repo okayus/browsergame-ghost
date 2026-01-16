@@ -14,8 +14,8 @@ type PartyScreenMode = "list" | "detail";
 export interface PartyScreenProps {
   /** パーティ内のゴースト一覧 */
   party: OwnedGhost[];
-  /** ゴースト種族データのマップ */
-  speciesMap: Record<string, GhostSpecies>;
+  /** ゴースト種族データのマップ（O(1)ルックアップ） */
+  speciesMap: ReadonlyMap<string, GhostSpecies>;
   /** 技データ配列 */
   moves: Move[];
   /** 戻るボタン押下時のコールバック */
@@ -130,7 +130,7 @@ export function PartyScreen({
         <div className="flex flex-1 items-center justify-center">
           <GhostDetailPanel
             ghost={selectedGhost}
-            species={speciesMap[selectedGhost.speciesId]}
+            species={speciesMap.get(selectedGhost.speciesId)}
             moves={moves}
             onClose={closeDetail}
           />
@@ -143,7 +143,7 @@ export function PartyScreen({
           {/* ゴースト一覧 */}
           <div className="flex flex-1 flex-col gap-2">
             {party.map((ghost, index) => {
-              const species = speciesMap[ghost.speciesId];
+              const species = speciesMap.get(ghost.speciesId);
               const isSelected = selectedIndex === index;
 
               return (

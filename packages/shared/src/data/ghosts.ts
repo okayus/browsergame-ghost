@@ -105,10 +105,17 @@ export const ALL_GHOST_SPECIES: GhostSpecies[] = [
 ];
 
 /**
+ * ゴースト種族IDからデータへのMap（O(1)ルックアップ用）
+ */
+export const GHOST_SPECIES_MAP: ReadonlyMap<string, GhostSpecies> = new Map(
+  ALL_GHOST_SPECIES.map((species) => [species.id, species]),
+);
+
+/**
  * 種族IDからゴースト種族データを取得
  */
 export function getGhostSpeciesById(speciesId: string): GhostSpecies | undefined {
-  return ALL_GHOST_SPECIES.find((species) => species.id === speciesId);
+  return GHOST_SPECIES_MAP.get(speciesId);
 }
 
 /**

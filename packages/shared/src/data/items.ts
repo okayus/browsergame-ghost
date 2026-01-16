@@ -85,8 +85,15 @@ export const ALL_ITEMS: Item[] = [
 ];
 
 /**
+ * アイテムIDからデータへのMap（O(1)ルックアップ用）
+ */
+export const ITEMS_MAP: ReadonlyMap<string, Item> = new Map(
+  ALL_ITEMS.map((item) => [item.id, item]),
+);
+
+/**
  * IDからアイテムを取得する
  */
 export function getItemById(id: string): Item | undefined {
-  return ALL_ITEMS.find((item) => item.id === id);
+  return ITEMS_MAP.get(id);
 }
