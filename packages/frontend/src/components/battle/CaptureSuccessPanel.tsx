@@ -1,5 +1,6 @@
 import type { GhostType, OwnedGhost } from "@ghost-game/shared";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
+import { useKeyboardHandler } from "../../hooks/useKeyboardHandler";
 
 /**
  * 捕獲成功パネルのProps
@@ -77,62 +78,51 @@ export function CaptureSuccessPanel({
   const capturedType = getSpeciesType(capturedGhost.speciesId);
 
   // キー入力処理
-  const handleKeyInput = useCallback(
-    (key: string) => {
-      // 選択肢の数を計算
-      const choiceCount = mode === "choice" ? 2 : mode === "swap" ? party.length + 1 : 1;
+  useKeyboardHandler(onKeyInput, (key: string) => {
+    // 選択肢の数を計算
+    const choiceCount = mode === "choice" ? 2 : mode === "swap" ? party.length + 1 : 1;
 
-      switch (key) {
-        case "w":
-        case "W":
-        case "ArrowUp":
-          setSelectedIndex((prev) => (prev > 0 ? prev - 1 : choiceCount - 1));
-          break;
-        case "s":
-        case "S":
-        case "ArrowDown":
-          setSelectedIndex((prev) => (prev < choiceCount - 1 ? prev + 1 : 0));
-          break;
-        case "Escape":
-          if (mode === "swap") {
-            setMode("choice");
+    switch (key) {
+      case "w":
+      case "W":
+      case "ArrowUp":
+        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : choiceCount - 1));
+        break;
+      case "s":
+      case "S":
+      case "ArrowDown":
+        setSelectedIndex((prev) => (prev < choiceCount - 1 ? prev + 1 : 0));
+        break;
+      case "Escape":
+        if (mode === "swap") {
+          setMode("choice");
+          setSelectedIndex(0);
+        }
+        break;
+      case "Enter":
+      case " ": {
+        if (mode === "success") {
+          onAddToParty();
+        } else if (mode === "choice") {
+          if (selectedIndex === 0) {
+            onSendToBox();
+          } else {
+            setMode("swap");
             setSelectedIndex(0);
           }
-          break;
-        case "Enter":
-        case " ": {
-          if (mode === "success") {
-            onAddToParty();
-          } else if (mode === "choice") {
-            if (selectedIndex === 0) {
-              onSendToBox();
-            } else {
-              setMode("swap");
-              setSelectedIndex(0);
-            }
-          } else if (mode === "swap") {
-            if (selectedIndex === party.length) {
-              // もどる
-              setMode("choice");
-              setSelectedIndex(0);
-            } else {
-              onSwapWithParty(selectedIndex);
-            }
+        } else if (mode === "swap") {
+          if (selectedIndex === party.length) {
+            // もどる
+            setMode("choice");
+            setSelectedIndex(0);
+          } else {
+            onSwapWithParty(selectedIndex);
           }
-          break;
         }
+        break;
       }
-    },
-    [mode, selectedIndex, party.length, onAddToParty, onSendToBox, onSwapWithParty],
-  );
-
-  // 親からのキー入力を処理
-  // biome-ignore lint/correctness/useExhaustiveDependencies: handleKeyInputは意図的に除外（onKeyInputの変更時のみ実行、無限ループ防止）
-  useEffect(() => {
-    if (onKeyInput) {
-      handleKeyInput(onKeyInput);
     }
-  }, [onKeyInput]);
+  });
 
   // 成功メッセージ画面（パーティに空きがある場合）
   if (mode === "success") {

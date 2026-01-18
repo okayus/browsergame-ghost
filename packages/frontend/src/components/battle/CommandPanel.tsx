@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
+import { useKeyboardHandler } from "../../hooks/useKeyboardHandler";
 
 /**
  * バトルコマンドの種類
@@ -54,50 +55,39 @@ export function CommandPanel({
   const [selectedIndex, setSelectedIndex] = useState(initialSelectedIndex);
 
   // キー入力処理
-  const handleKeyInput = useCallback(
-    (key: string) => {
-      switch (key) {
-        case "w":
-        case "W":
-        case "ArrowUp":
-          setSelectedIndex((prev) => (prev <= 1 ? prev + 2 : prev - 2));
-          break;
-        case "s":
-        case "S":
-        case "ArrowDown":
-          setSelectedIndex((prev) => (prev >= 2 ? prev - 2 : prev + 2));
-          break;
-        case "a":
-        case "A":
-        case "ArrowLeft":
-          setSelectedIndex((prev) => (prev % 2 === 0 ? prev + 1 : prev - 1));
-          break;
-        case "d":
-        case "D":
-        case "ArrowRight":
-          setSelectedIndex((prev) => (prev % 2 === 0 ? prev + 1 : prev - 1));
-          break;
-        case "Enter":
-        case " ": {
-          const command = COMMANDS[selectedIndex];
-          if (command.command === "capture" && !canCapture) {
-            return;
-          }
-          onSelectCommand(command.command);
-          break;
+  useKeyboardHandler(onKeyInput, (key: string) => {
+    switch (key) {
+      case "w":
+      case "W":
+      case "ArrowUp":
+        setSelectedIndex((prev) => (prev <= 1 ? prev + 2 : prev - 2));
+        break;
+      case "s":
+      case "S":
+      case "ArrowDown":
+        setSelectedIndex((prev) => (prev >= 2 ? prev - 2 : prev + 2));
+        break;
+      case "a":
+      case "A":
+      case "ArrowLeft":
+        setSelectedIndex((prev) => (prev % 2 === 0 ? prev + 1 : prev - 1));
+        break;
+      case "d":
+      case "D":
+      case "ArrowRight":
+        setSelectedIndex((prev) => (prev % 2 === 0 ? prev + 1 : prev - 1));
+        break;
+      case "Enter":
+      case " ": {
+        const command = COMMANDS[selectedIndex];
+        if (command.command === "capture" && !canCapture) {
+          return;
         }
+        onSelectCommand(command.command);
+        break;
       }
-    },
-    [selectedIndex, canCapture, onSelectCommand],
-  );
-
-  // 親からのキー入力を処理
-  // biome-ignore lint/correctness/useExhaustiveDependencies: handleKeyInputは意図的に除外（onKeyInputの変更時のみ実行、無限ループ防止）
-  useEffect(() => {
-    if (onKeyInput) {
-      handleKeyInput(onKeyInput);
     }
-  }, [onKeyInput]);
+  });
 
   // コマンドクリック
   const handleCommandClick = (index: number) => {

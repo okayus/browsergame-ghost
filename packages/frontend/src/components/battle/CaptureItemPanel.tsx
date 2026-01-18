@@ -1,5 +1,6 @@
 import type { InventoryEntry, Item } from "@ghost-game/shared";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
+import { useKeyboardHandler } from "../../hooks/useKeyboardHandler";
 
 /**
  * 表示用の捕獲アイテム情報
@@ -48,47 +49,36 @@ export function CaptureItemPanel({
   );
 
   // キー入力処理
-  const handleKeyInput = useCallback(
-    (key: string) => {
-      switch (key) {
-        case "w":
-        case "W":
-        case "ArrowUp":
-          setSelectedIndex((prev) => (prev > 0 ? prev - 1 : totalItems - 1));
-          break;
-        case "s":
-        case "S":
-        case "ArrowDown":
-          setSelectedIndex((prev) => (prev < totalItems - 1 ? prev + 1 : 0));
-          break;
-        case "Escape":
+  useKeyboardHandler(onKeyInput, (key: string) => {
+    switch (key) {
+      case "w":
+      case "W":
+      case "ArrowUp":
+        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : totalItems - 1));
+        break;
+      case "s":
+      case "S":
+      case "ArrowDown":
+        setSelectedIndex((prev) => (prev < totalItems - 1 ? prev + 1 : 0));
+        break;
+      case "Escape":
+        onBack();
+        break;
+      case "Enter":
+      case " ": {
+        if (selectedIndex === backIndex) {
           onBack();
-          break;
-        case "Enter":
-        case " ": {
-          if (selectedIndex === backIndex) {
-            onBack();
-          } else {
-            const displayItem = items[selectedIndex];
-            // 所持数が0の場合は選択不可
-            if (displayItem.entry.quantity > 0) {
-              onSelectItem(displayItem.entry.itemId);
-            }
+        } else {
+          const displayItem = items[selectedIndex];
+          // 所持数が0の場合は選択不可
+          if (displayItem.entry.quantity > 0) {
+            onSelectItem(displayItem.entry.itemId);
           }
-          break;
         }
+        break;
       }
-    },
-    [selectedIndex, items, totalItems, backIndex, onSelectItem, onBack],
-  );
-
-  // 親からのキー入力を処理
-  // biome-ignore lint/correctness/useExhaustiveDependencies: handleKeyInputは意図的に除外（onKeyInputの変更時のみ実行、無限ループ防止）
-  useEffect(() => {
-    if (onKeyInput) {
-      handleKeyInput(onKeyInput);
     }
-  }, [onKeyInput]);
+  });
 
   // アイテムクリック
   const handleItemClick = (index: number) => {

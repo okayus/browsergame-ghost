@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
+import { useKeyboardHandler } from "../../hooks/useKeyboardHandler";
 import type { ManualSaveStatus } from "./SaveFeedback";
 import { SaveFeedback } from "./SaveFeedback";
 
@@ -88,51 +89,40 @@ export function MenuScreen({
   });
 
   // キー入力処理
-  const handleKeyInput = useCallback(
-    (key: string) => {
-      // セーブ中はキー入力を無視
-      if (isSaving) return;
+  useKeyboardHandler(onKeyInput, (key: string) => {
+    // セーブ中はキー入力を無視
+    if (isSaving) return;
 
-      switch (key) {
-        case "w":
-        case "W":
-        case "ArrowUp":
-          setSelectedIndex((prev) => (prev > 0 ? prev - 1 : MENU_ITEMS.length - 1));
-          break;
-        case "s":
-        case "S":
-        case "ArrowDown":
-          setSelectedIndex((prev) => (prev < MENU_ITEMS.length - 1 ? prev + 1 : 0));
-          break;
-        case "Escape":
-          onClose();
-          break;
-        case "Enter":
-        case " ": {
-          const item = MENU_ITEMS[selectedIndex];
-          if (!item.disabled) {
-            if (item.id === "close") {
-              onClose();
-            } else if (item.id === "save" && onSave) {
-              onSave();
-            } else {
-              onSelectItem(item.id);
-            }
+    switch (key) {
+      case "w":
+      case "W":
+      case "ArrowUp":
+        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : MENU_ITEMS.length - 1));
+        break;
+      case "s":
+      case "S":
+      case "ArrowDown":
+        setSelectedIndex((prev) => (prev < MENU_ITEMS.length - 1 ? prev + 1 : 0));
+        break;
+      case "Escape":
+        onClose();
+        break;
+      case "Enter":
+      case " ": {
+        const item = MENU_ITEMS[selectedIndex];
+        if (!item.disabled) {
+          if (item.id === "close") {
+            onClose();
+          } else if (item.id === "save" && onSave) {
+            onSave();
+          } else {
+            onSelectItem(item.id);
           }
-          break;
         }
+        break;
       }
-    },
-    [selectedIndex, onSelectItem, onClose, onSave, isSaving, MENU_ITEMS],
-  );
-
-  // 親からのキー入力を処理
-  // biome-ignore lint/correctness/useExhaustiveDependencies: handleKeyInputは意図的に除外（onKeyInputの変更時のみ実行、無限ループ防止）
-  useEffect(() => {
-    if (onKeyInput) {
-      handleKeyInput(onKeyInput);
     }
-  }, [onKeyInput]);
+  });
 
   // 項目クリック
   const handleItemClick = (index: number) => {
