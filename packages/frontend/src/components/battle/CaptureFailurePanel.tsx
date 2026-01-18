@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useKeyboardHandler } from "../../hooks/useKeyboardHandler";
 
 /**
  * 捕獲失敗パネルのProps
@@ -28,22 +28,11 @@ export function CaptureFailurePanel({
   onKeyInput,
 }: CaptureFailurePanelProps) {
   // キー入力処理
-  const handleKeyInput = useCallback(
-    (key: string) => {
-      if (key === "Enter" || key === " ") {
-        onContinue();
-      }
-    },
-    [onContinue],
-  );
-
-  // 親からのキー入力を処理
-  // biome-ignore lint/correctness/useExhaustiveDependencies: handleKeyInputは意図的に除外（onKeyInputの変更時のみ実行、無限ループ防止）
-  useEffect(() => {
-    if (onKeyInput) {
-      handleKeyInput(onKeyInput);
+  useKeyboardHandler(onKeyInput, (key: string) => {
+    if (key === "Enter" || key === " ") {
+      onContinue();
     }
-  }, [onKeyInput]);
+  });
 
   return (
     <div

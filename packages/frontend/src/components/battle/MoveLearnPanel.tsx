@@ -1,5 +1,6 @@
 import type { GhostType, Move, OwnedMove } from "@ghost-game/shared";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
+import { useKeyboardHandler } from "../../hooks/useKeyboardHandler";
 
 /**
  * 技習得パネルのProps
@@ -66,76 +67,65 @@ export function MoveLearnPanel({
   const [confirmChoice, setConfirmChoice] = useState(0); // 0: 習得する, 1: あきらめる
 
   // キー入力処理
-  const handleKeyInput = useCallback(
-    (key: string) => {
-      // 選択肢の数を計算
-      const choiceCount = mode === "confirm" ? 2 : currentMoves.length + 1;
+  useKeyboardHandler(onKeyInput, (key: string) => {
+    // 選択肢の数を計算
+    const choiceCount = mode === "confirm" ? 2 : currentMoves.length + 1;
 
-      switch (key) {
-        case "w":
-        case "W":
-        case "ArrowUp":
-          if (mode === "confirm") {
-            setConfirmChoice((prev) => (prev > 0 ? prev - 1 : 1));
-          } else {
-            setSelectedIndex((prev) => (prev > 0 ? prev - 1 : choiceCount - 1));
-          }
-          break;
-        case "s":
-        case "S":
-        case "ArrowDown":
-          if (mode === "confirm") {
-            setConfirmChoice((prev) => (prev < 1 ? prev + 1 : 0));
-          } else {
-            setSelectedIndex((prev) => (prev < choiceCount - 1 ? prev + 1 : 0));
-          }
-          break;
-        case "Escape":
-          if (mode === "select") {
-            setMode("confirm");
-            setConfirmChoice(0);
-          }
-          break;
-        case "Enter":
-        case " ": {
-          if (mode === "confirm") {
-            if (confirmChoice === 0) {
-              // 習得する
-              if (hasMaxMoves) {
-                setMode("select");
-                setSelectedIndex(0);
-              } else {
-                // 技に空きがある場合はそのまま習得
-                onLearnMove(currentMoves.length);
-              }
-            } else {
-              // あきらめる
-              onLearnMove(-1);
-            }
-          } else {
-            // 技選択モード
-            if (selectedIndex === currentMoves.length) {
-              // あきらめる
-              onLearnMove(-1);
-            } else {
-              // 入れ替え
-              onLearnMove(selectedIndex);
-            }
-          }
-          break;
+    switch (key) {
+      case "w":
+      case "W":
+      case "ArrowUp":
+        if (mode === "confirm") {
+          setConfirmChoice((prev) => (prev > 0 ? prev - 1 : 1));
+        } else {
+          setSelectedIndex((prev) => (prev > 0 ? prev - 1 : choiceCount - 1));
         }
+        break;
+      case "s":
+      case "S":
+      case "ArrowDown":
+        if (mode === "confirm") {
+          setConfirmChoice((prev) => (prev < 1 ? prev + 1 : 0));
+        } else {
+          setSelectedIndex((prev) => (prev < choiceCount - 1 ? prev + 1 : 0));
+        }
+        break;
+      case "Escape":
+        if (mode === "select") {
+          setMode("confirm");
+          setConfirmChoice(0);
+        }
+        break;
+      case "Enter":
+      case " ": {
+        if (mode === "confirm") {
+          if (confirmChoice === 0) {
+            // 習得する
+            if (hasMaxMoves) {
+              setMode("select");
+              setSelectedIndex(0);
+            } else {
+              // 技に空きがある場合はそのまま習得
+              onLearnMove(currentMoves.length);
+            }
+          } else {
+            // あきらめる
+            onLearnMove(-1);
+          }
+        } else {
+          // 技選択モード
+          if (selectedIndex === currentMoves.length) {
+            // あきらめる
+            onLearnMove(-1);
+          } else {
+            // 入れ替え
+            onLearnMove(selectedIndex);
+          }
+        }
+        break;
       }
-    },
-    [mode, confirmChoice, selectedIndex, currentMoves.length, hasMaxMoves, onLearnMove],
-  );
-
-  // 親からのキー入力を処理
-  // biome-ignore lint/correctness/useExhaustiveDependencies: handleKeyInputは意図的に除外（onKeyInputの変更時のみ実行、無限ループ防止）
-  useEffect(() => {
-    if (onKeyInput) {
-      handleKeyInput(onKeyInput);
     }
-  }, [onKeyInput]);
+  });
 
   // 確認画面
   if (mode === "confirm") {

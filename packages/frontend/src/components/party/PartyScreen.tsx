@@ -1,5 +1,6 @@
 import type { GhostSpecies, Move, OwnedGhost } from "@ghost-game/shared";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
+import { useKeyboardHandler } from "../../hooks/useKeyboardHandler";
 import { GhostDetailPanel } from "./GhostDetailPanel";
 import { GhostSummaryCard } from "./GhostSummaryCard";
 
@@ -54,58 +55,47 @@ export function PartyScreen({
   const selectedGhost = selectedIndex < party.length ? party[selectedIndex] : null;
 
   // 詳細パネルを閉じる
-  const closeDetail = useCallback(() => {
+  const closeDetail = () => {
     setMode("list");
-  }, []);
+  };
 
   // キー入力処理
-  const handleKeyInput = useCallback(
-    (key: string) => {
-      // 詳細モードの場合
-      if (mode === "detail") {
-        if (key === "Escape") {
-          closeDetail();
-        }
-        return;
+  useKeyboardHandler(onKeyInput, (key: string) => {
+    // 詳細モードの場合
+    if (mode === "detail") {
+      if (key === "Escape") {
+        closeDetail();
       }
-
-      // 一覧モードの場合
-      switch (key) {
-        case "w":
-        case "W":
-        case "ArrowUp":
-          setSelectedIndex((prev) => (prev > 0 ? prev - 1 : totalItems - 1));
-          break;
-        case "s":
-        case "S":
-        case "ArrowDown":
-          setSelectedIndex((prev) => (prev < totalItems - 1 ? prev + 1 : 0));
-          break;
-        case "Escape":
-          onClose();
-          break;
-        case "Enter":
-        case " ": {
-          if (selectedIndex === backIndex) {
-            onClose();
-          } else {
-            // ゴースト詳細を表示
-            setMode("detail");
-          }
-          break;
-        }
-      }
-    },
-    [mode, selectedIndex, totalItems, backIndex, onClose, closeDetail],
-  );
-
-  // 親からのキー入力を処理
-  // biome-ignore lint/correctness/useExhaustiveDependencies: handleKeyInputは意図的に除外（onKeyInputの変更時のみ実行、無限ループ防止）
-  useEffect(() => {
-    if (onKeyInput) {
-      handleKeyInput(onKeyInput);
+      return;
     }
-  }, [onKeyInput]);
+
+    // 一覧モードの場合
+    switch (key) {
+      case "w":
+      case "W":
+      case "ArrowUp":
+        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : totalItems - 1));
+        break;
+      case "s":
+      case "S":
+      case "ArrowDown":
+        setSelectedIndex((prev) => (prev < totalItems - 1 ? prev + 1 : 0));
+        break;
+      case "Escape":
+        onClose();
+        break;
+      case "Enter":
+      case " ": {
+        if (selectedIndex === backIndex) {
+          onClose();
+        } else {
+          // ゴースト詳細を表示
+          setMode("detail");
+        }
+        break;
+      }
+    }
+  });
 
   // ゴーストクリック
   const handleGhostClick = (index: number) => {

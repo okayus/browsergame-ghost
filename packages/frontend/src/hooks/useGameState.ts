@@ -1,5 +1,5 @@
 import type { Inventory, OwnedGhost, Party } from "@ghost-game/shared";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 /**
  * ゲーム画面の種類
@@ -68,6 +68,10 @@ const initialState: GameState = {
 export function useGameState(): UseGameStateReturn {
   const [state, setState] = useState<GameState>(initialState);
 
+  // 最新の状態を参照するためのref（同期的なアクセス用）
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
   const setScreen = useCallback((screen: GameScreen) => {
     setState((prev) => ({ ...prev, currentScreen: screen }));
   }, []);
@@ -91,92 +95,82 @@ export function useGameState(): UseGameStateReturn {
     });
   }, []);
 
-  const addGhostToParty = useCallback(
-    (ghost: OwnedGhost): boolean => {
-      // パーティがないか上限に達している場合は失敗
-      if (!state.party || state.party.ghosts.length >= 6) {
-        return false;
-      }
+  const addGhostToParty = useCallback((ghost: OwnedGhost): boolean => {
+    // refから最新の状態を同期的に取得
+    const currentParty = stateRef.current.party;
+    if (!currentParty || currentParty.ghosts.length >= 6) {
+      return false;
+    }
 
-      setState((prev) => {
-        if (!prev.party || prev.party.ghosts.length >= 6) return prev;
-
-        return {
-          ...prev,
-          party: { ghosts: [...prev.party.ghosts, ghost] },
-        };
-      });
-
-      return true;
-    },
-    [state.party],
-  );
+    setState((prev) => {
+      if (!prev.party || prev.party.ghosts.length >= 6) return prev;
+      return {
+        ...prev,
+        party: { ghosts: [...prev.party.ghosts, ghost] },
+      };
+    });
+    return true;
+  }, []);
 
   const swapPartyGhost = useCallback(
     (index: number, newGhost: OwnedGhost): OwnedGhost | null => {
-      if (!state.party || index < 0 || index >= state.party.ghosts.length) {
+      // refから最新の状態を同期的に取得
+      const currentParty = stateRef.current.party;
+      if (!currentParty || index < 0 || index >= currentParty.ghosts.length) {
         return null;
       }
 
-      const removedGhost = state.party.ghosts[index];
+      const removedGhost = currentParty.ghosts[index];
 
       setState((prev) => {
         if (!prev.party || index < 0 || index >= prev.party.ghosts.length) return prev;
-
         const updatedGhosts = [...prev.party.ghosts];
         updatedGhosts[index] = newGhost;
-
         return {
           ...prev,
           party: { ghosts: updatedGhosts },
         };
       });
-
       return removedGhost;
     },
-    [state.party],
+    [],
   );
 
   const setInventory = useCallback((inventory: Inventory) => {
     setState((prev) => ({ ...prev, inventory }));
   }, []);
 
-  const useItem = useCallback(
-    (itemId: string, quantity = 1): boolean => {
-      // NOTE: setStateは非同期のため、コールバック内で設定した値を同期的に返すことができない
-      // そのため、stateを直接参照して先にアイテムの使用可否を判定する
-      const itemIndex = state.inventory.items.findIndex((item) => item.itemId === itemId);
+  const useItem = useCallback((itemId: string, quantity = 1): boolean => {
+    // refから最新の状態を同期的に取得
+    const currentItems = stateRef.current.inventory.items;
+    const itemIndex = currentItems.findIndex((item) => item.itemId === itemId);
+    if (itemIndex === -1) return false;
 
-      if (itemIndex === -1) return false;
+    const item = currentItems[itemIndex];
+    if (item.quantity < quantity) return false;
 
-      const item = state.inventory.items[itemIndex];
-      if (item.quantity < quantity) return false;
+    setState((prev) => {
+      const currentItemIndex = prev.inventory.items.findIndex((i) => i.itemId === itemId);
+      if (currentItemIndex === -1) return prev;
 
-      setState((prev) => {
-        const currentItemIndex = prev.inventory.items.findIndex((i) => i.itemId === itemId);
-        if (currentItemIndex === -1) return prev;
+      const currentItem = prev.inventory.items[currentItemIndex];
+      if (currentItem.quantity < quantity) return prev;
 
-        const currentItem = prev.inventory.items[currentItemIndex];
-        if (currentItem.quantity < quantity) return prev;
+      const newQuantity = currentItem.quantity - quantity;
+      const updatedItems =
+        newQuantity > 0
+          ? prev.inventory.items.map((i, idx) =>
+              idx === currentItemIndex ? { ...i, quantity: newQuantity } : i,
+            )
+          : prev.inventory.items.filter((_, idx) => idx !== currentItemIndex);
 
-        const newQuantity = currentItem.quantity - quantity;
-        const updatedItems =
-          newQuantity > 0
-            ? prev.inventory.items.map((i, idx) =>
-                idx === currentItemIndex ? { ...i, quantity: newQuantity } : i,
-              )
-            : prev.inventory.items.filter((_, idx) => idx !== currentItemIndex);
-
-        return {
-          ...prev,
-          inventory: { items: updatedItems },
-        };
-      });
-
-      return true;
-    },
-    [state.inventory.items],
-  );
+      return {
+        ...prev,
+        inventory: { items: updatedItems },
+      };
+    });
+    return true;
+  }, []);
 
   const addItem = useCallback((itemId: string, quantity = 1) => {
     setState((prev) => {

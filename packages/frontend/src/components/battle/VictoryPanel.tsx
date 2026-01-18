@@ -1,5 +1,6 @@
 import type { GhostType, LevelUpResult } from "@ghost-game/shared";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
+import { useKeyboardHandler } from "../../hooks/useKeyboardHandler";
 
 /**
  * 勝利パネルのProps
@@ -74,7 +75,7 @@ export function VictoryPanel({
   const [currentMoveIndex, setCurrentMoveIndex] = useState(0);
 
   // フェーズを進める
-  const advancePhase = useCallback(() => {
+  const advancePhase = () => {
     switch (phase) {
       case "victory":
         setPhase("exp");
@@ -107,25 +108,14 @@ export function VictoryPanel({
         onContinue();
         break;
     }
-  }, [phase, leveledUp, levelUpResult, onLearnMove, currentMoveIndex, onContinue]);
+  };
 
   // キー入力処理
-  const handleKeyInput = useCallback(
-    (key: string) => {
-      if (key === "Enter" || key === " ") {
-        advancePhase();
-      }
-    },
-    [advancePhase],
-  );
-
-  // 親からのキー入力を処理
-  // biome-ignore lint/correctness/useExhaustiveDependencies: handleKeyInputは意図的に除外（onKeyInputの変更時のみ実行、無限ループ防止）
-  useEffect(() => {
-    if (onKeyInput) {
-      handleKeyInput(onKeyInput);
+  useKeyboardHandler(onKeyInput, (key: string) => {
+    if (key === "Enter" || key === " ") {
+      advancePhase();
     }
-  }, [onKeyInput]);
+  });
 
   // 勝利メッセージ
   if (phase === "victory") {

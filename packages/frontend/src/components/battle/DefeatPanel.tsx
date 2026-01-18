@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
+import { useKeyboardHandler } from "../../hooks/useKeyboardHandler";
 
 /**
  * 敗北パネルのProps
@@ -32,7 +33,7 @@ export function DefeatPanel({
   const [phase, setPhase] = useState<PanelPhase>("defeat");
 
   // フェーズを進める
-  const advancePhase = useCallback(() => {
+  const advancePhase = () => {
     switch (phase) {
       case "defeat":
         setPhase("message");
@@ -44,25 +45,14 @@ export function DefeatPanel({
         onContinue();
         break;
     }
-  }, [phase, onContinue]);
+  };
 
   // キー入力処理
-  const handleKeyInput = useCallback(
-    (key: string) => {
-      if (key === "Enter" || key === " ") {
-        advancePhase();
-      }
-    },
-    [advancePhase],
-  );
-
-  // 親からのキー入力を処理
-  // biome-ignore lint/correctness/useExhaustiveDependencies: handleKeyInputは意図的に除外（onKeyInputの変更時のみ実行、無限ループ防止）
-  useEffect(() => {
-    if (onKeyInput) {
-      handleKeyInput(onKeyInput);
+  useKeyboardHandler(onKeyInput, (key: string) => {
+    if (key === "Enter" || key === " ") {
+      advancePhase();
     }
-  }, [onKeyInput]);
+  });
 
   // 敗北メッセージ
   if (phase === "defeat") {

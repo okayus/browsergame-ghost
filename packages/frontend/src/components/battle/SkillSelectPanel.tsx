@@ -1,5 +1,6 @@
 import type { GhostType, Move, OwnedMove } from "@ghost-game/shared";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
+import { useKeyboardHandler } from "../../hooks/useKeyboardHandler";
 
 /**
  * 表示用の技情報
@@ -72,47 +73,36 @@ export function SkillSelectPanel({
   );
 
   // キー入力処理
-  const handleKeyInput = useCallback(
-    (key: string) => {
-      switch (key) {
-        case "w":
-        case "W":
-        case "ArrowUp":
-          setSelectedIndex((prev) => (prev > 0 ? prev - 1 : totalItems - 1));
-          break;
-        case "s":
-        case "S":
-        case "ArrowDown":
-          setSelectedIndex((prev) => (prev < totalItems - 1 ? prev + 1 : 0));
-          break;
-        case "Escape":
+  useKeyboardHandler(onKeyInput, (key: string) => {
+    switch (key) {
+      case "w":
+      case "W":
+      case "ArrowUp":
+        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : totalItems - 1));
+        break;
+      case "s":
+      case "S":
+      case "ArrowDown":
+        setSelectedIndex((prev) => (prev < totalItems - 1 ? prev + 1 : 0));
+        break;
+      case "Escape":
+        onBack();
+        break;
+      case "Enter":
+      case " ": {
+        if (selectedIndex === backIndex) {
           onBack();
-          break;
-        case "Enter":
-        case " ": {
-          if (selectedIndex === backIndex) {
-            onBack();
-          } else {
-            const displayMove = moves[selectedIndex];
-            // PP が 0 の場合は選択不可
-            if (displayMove.ownedMove.currentPP > 0) {
-              onSelectMove(displayMove.ownedMove.moveId);
-            }
+        } else {
+          const displayMove = moves[selectedIndex];
+          // PP が 0 の場合は選択不可
+          if (displayMove.ownedMove.currentPP > 0) {
+            onSelectMove(displayMove.ownedMove.moveId);
           }
-          break;
         }
+        break;
       }
-    },
-    [selectedIndex, moves, totalItems, backIndex, onSelectMove, onBack],
-  );
-
-  // 親からのキー入力を処理
-  // biome-ignore lint/correctness/useExhaustiveDependencies: handleKeyInputは意図的に除外（onKeyInputの変更時のみ実行、無限ループ防止）
-  useEffect(() => {
-    if (onKeyInput) {
-      handleKeyInput(onKeyInput);
     }
-  }, [onKeyInput]);
+  });
 
   // 技クリック
   const handleMoveClick = (index: number) => {

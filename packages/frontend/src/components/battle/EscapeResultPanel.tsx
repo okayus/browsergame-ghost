@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useKeyboardHandler } from "../../hooks/useKeyboardHandler";
 
 /**
  * 逃走結果パネルのProps
@@ -30,31 +30,20 @@ export function EscapeResultPanel({
   onKeyInput,
 }: EscapeResultPanelProps) {
   // 続行処理
-  const handleContinue = useCallback(() => {
+  const handleContinue = () => {
     if (success) {
       onSuccess();
     } else {
       onFailure();
     }
-  }, [success, onSuccess, onFailure]);
+  };
 
   // キー入力処理
-  const handleKeyInput = useCallback(
-    (key: string) => {
-      if (key === "Enter" || key === " ") {
-        handleContinue();
-      }
-    },
-    [handleContinue],
-  );
-
-  // 親からのキー入力を処理
-  // biome-ignore lint/correctness/useExhaustiveDependencies: handleKeyInputは意図的に除外（onKeyInputの変更時のみ実行、無限ループ防止）
-  useEffect(() => {
-    if (onKeyInput) {
-      handleKeyInput(onKeyInput);
+  useKeyboardHandler(onKeyInput, (key: string) => {
+    if (key === "Enter" || key === " ") {
+      handleContinue();
     }
-  }, [onKeyInput]);
+  });
 
   // 逃走成功
   if (success) {
