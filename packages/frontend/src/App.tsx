@@ -1,8 +1,7 @@
 import { useClerk } from "@clerk/clerk-react";
 import {
-  ALL_GHOST_SPECIES,
   ALL_MOVES,
-  type GhostSpecies,
+  GHOST_SPECIES_MAP,
   type GhostType,
   generateWildGhost,
   getGhostSpeciesById,
@@ -10,7 +9,7 @@ import {
   type OwnedGhost,
   type PlayerData,
 } from "@ghost-game/shared";
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import {
   useAutoSave,
   useInitializePlayerMutation,
@@ -134,17 +133,6 @@ function AuthenticatedContent() {
       setPlayerGhostType,
       setEnemyGhostType,
     });
-
-  // ゴースト種族データのマップを作成
-  const speciesMap = useMemo(() => {
-    return ALL_GHOST_SPECIES.reduce(
-      (acc, species) => {
-        acc[species.id] = species;
-        return acc;
-      },
-      {} as Record<string, GhostSpecies>,
-    );
-  }, []);
 
   // ロードしたデータをゲーム状態に適用
   const applyLoadedData = useCallback(
@@ -439,7 +427,7 @@ function AuthenticatedContent() {
         {gameState.currentScreen === "party" && gameState.party && (
           <PartyScreen
             party={gameState.party.ghosts}
-            speciesMap={speciesMap}
+            speciesMap={GHOST_SPECIES_MAP}
             moves={ALL_MOVES}
             onClose={handleCloseParty}
             onKeyInput={keyInput}
