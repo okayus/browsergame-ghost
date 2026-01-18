@@ -3,8 +3,8 @@ export {
   GHOST_AQUASPIRIT,
   GHOST_FIRELING,
   GHOST_LEAFSHADE,
-  GHOST_SPIRITPUFF,
   GHOST_SPECIES_MAP,
+  GHOST_SPIRITPUFF,
   generateWildGhost,
   getGhostSpeciesById,
 } from "./ghosts";
